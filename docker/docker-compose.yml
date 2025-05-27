@@ -1,0 +1,12 @@
+services:
+  kalibr:
+    build:
+      context: .
+
+    tty: true
+    stdin_open: true
+
+    working_dir: /kalibr
+
+    volumes:
+      - ../:/kalibr

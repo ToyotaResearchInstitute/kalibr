@@ -1,0 +1,25 @@
+name: CI pipeline
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker Image
+        run: |
+          docker compose build
+        working-directory: ./docker
+
+      - name: Build And Test Packages
+        run: |
+          docker compose run --rm kalibr ./tools/build_and_test.sh
+        working-directory: ./docker
