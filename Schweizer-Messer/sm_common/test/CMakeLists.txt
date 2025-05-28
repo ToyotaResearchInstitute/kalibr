@@ -1,11 +1,7 @@
 find_package(GTest MODULE)
 
 add_executable(${PROJECT_NAME}-test
-  test_main.cpp
-  maths.cpp
   serialization_macros.cpp
-  numerical_comparisons.cpp
-  hash_id.cpp
 )
 
 target_link_libraries(
