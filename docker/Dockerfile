@@ -11,6 +11,12 @@ RUN apt update && apt install -y \
     # gtest
     libgtest-dev \
     libgmock-dev
+    # ethz_apriltag2
+    libeigen3-dev \
+    # ethz_apriltag2
+    libopencv-dev \
+    # ethz_apriltag2 (demo)
+    libv4l-dev
 
 # Create and activate a virtual environment
 RUN python3 -m venv /opt/venv \
