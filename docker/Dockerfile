@@ -6,7 +6,7 @@ RUN apt update && apt install -y \
     python3-venv
 
 RUN apt update && apt install -y \
-    # sm-common
+    # aslam_time, sm-common
     libboost-all-dev \
     # gtest
     libgtest-dev \
