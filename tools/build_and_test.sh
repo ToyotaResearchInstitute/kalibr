@@ -5,6 +5,7 @@ set -e
 # Currently we build and test the packages already migrated to ROS2 / Ubuntu noble.
 packages=(
     "aslam_time" \
+    "ethz_apriltag2" \
     "sm_common" \
 )
 
