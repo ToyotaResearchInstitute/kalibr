@@ -8,7 +8,10 @@ project(ethz_apriltag2
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 
-set(CMAKE_BUILD_TYPE Release)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
 
 add_library(
   ${PROJECT_NAME}
