@@ -6,6 +6,7 @@ set -e
 packages=(
     "aslam_time" \
     "sm_common" \
+    "sm_logging" \
     "sm_random" \
 )
 
