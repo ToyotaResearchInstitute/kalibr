@@ -8,6 +8,8 @@ project(ethz_apriltag2
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 
+set(CMAKE_BUILD_TYPE Release)
+
 add_library(
   ${PROJECT_NAME}
   src/Edge.cc
@@ -51,14 +53,16 @@ target_compile_options(
   INTERFACE
   "-Wall"
   "-Wextra"
-  "-fPIC"
-  "-O3"
 )
 
 target_compile_features(
   ${PROJECT_NAME}
   INTERFACE
   cxx_std_14
+)
+
+set_target_properties(
+  ${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON
 )
 
 set(INSTALL_CMAKEDIR ${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/cmake)

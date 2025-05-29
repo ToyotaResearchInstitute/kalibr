@@ -10,7 +10,7 @@ RUN apt update && apt install -y \
     libboost-all-dev \
     # gtest
     libgtest-dev \
-    libgmock-dev
+    libgmock-dev \
     # ethz_apriltag2
     libeigen3-dev \
     # ethz_apriltag2
