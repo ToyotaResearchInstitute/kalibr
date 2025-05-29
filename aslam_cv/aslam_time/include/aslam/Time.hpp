@@ -54,14 +54,10 @@
  ** Headers
  *********************************************************************/
 
-//#include <ros/platform.h>
 #include <iostream>
 #include <cmath>
-//#include <ros/exception.h>
 #include "Duration.hpp"
 #include <boost/math/special_functions/round.hpp>
-//#include "rostime_decl.h"
-//#include <aslam/Exceptions.hpp>
 #include <boost/serialization/nvp.hpp>
 
 /*********************************************************************

@@ -52,7 +52,6 @@
 #include <climits>
 #include <stdint.h>
 #include <boost/serialization/nvp.hpp>
-//#include "rostime_decl.h"
 
 namespace boost {
 namespace posix_time {

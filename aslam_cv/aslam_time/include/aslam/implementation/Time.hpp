@@ -39,11 +39,8 @@
  ** Headers
  *********************************************************************/
 
-//#include <ros/platform.h>
 #include <iostream>
 #include <cmath>
-//#include <ros/exception.h>
-//#include <aslam/time.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 /*********************************************************************
