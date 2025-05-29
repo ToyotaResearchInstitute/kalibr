@@ -53,3 +53,8 @@ Build
 
 # vs-code
 .vscode
+
+# CMake
+build
+install
+log
