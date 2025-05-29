@@ -35,7 +35,6 @@
 #define ASLAMTIME_IMPL_DURATION_H_INCLUDED
 
 #include <aslam/Duration.hpp>
-//#include <ros/rate.h>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 
 namespace aslam {
