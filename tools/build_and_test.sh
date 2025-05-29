@@ -4,7 +4,7 @@ set -e
 
 # Currently we build and test the packages already migrated to ROS2 / Ubuntu noble.
 packages=(
-    "" \
+    "sm_common" \
 )
 
 echo "=== Building packages ==="

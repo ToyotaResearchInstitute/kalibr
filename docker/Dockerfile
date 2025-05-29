@@ -5,6 +5,13 @@ RUN apt update && apt install -y \
     python3-pip \
     python3-venv
 
+RUN apt update && apt install -y \
+    # sm-common
+    libboost-all-dev \
+    # gtest
+    libgtest-dev \
+    libgmock-dev
+
 # Create and activate a virtual environment
 RUN python3 -m venv /opt/venv \
  && /opt/venv/bin/pip install -U pip \

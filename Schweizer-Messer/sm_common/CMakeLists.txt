@@ -1,62 +1,76 @@
-cmake_minimum_required(VERSION 3.0.2)
-project(sm_common)
+cmake_minimum_required(VERSION 3.28.0)
 
-set(CMAKE_CXX_STANDARD 14)
+project(sm_common
+  VERSION 0.0.1
+  DESCRIPTION "Common utilities"
+  LANGUAGES CXX
+)
 
-find_package(catkin REQUIRED)
+
 find_package(Boost REQUIRED COMPONENTS system)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -D__STRICT_ANSI__")
+add_library(${PROJECT_NAME} INTERFACE)
 
+target_include_directories(
+  ${PROJECT_NAME}
+  INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+            "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
+  )
 
-catkin_package(
-  INCLUDE_DIRS include ${catkin_INCLUDE_DIRS}
-  LIBRARIES ${PROJECT_NAME}
-  CATKIN_DEPENDS 
-  DEPENDS Boost
-  CFG_EXTRAS export_flags.cmake
-)
-  
-include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
-  ${Boost_INCLUDE_DIRS}
-)
-add_library(${PROJECT_NAME}
-  src/progress_info.cpp
-)
-target_link_libraries(${PROJECT_NAME} 
-                      ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-target_compile_options(${PROJECT_NAME} PUBLIC "-Wno-deprecated-copy") # TODO: Fix...
-
-##################
-## Installation ##
-##################
-
-install(TARGETS ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+target_link_libraries(
+  ${PROJECT_NAME}
+  INTERFACE
+  Boost::system
 )
 
-## Mark cpp header files for installation
-install(DIRECTORY include/
-  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION} #${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+target_compile_options(
+  ${PROJECT_NAME}
+  INTERFACE
+  "-Wall"
+  "-Wextra"
 )
 
-#############
-## Testing ##
-#############
-if(CATKIN_ENABLE_TESTING)
-  # Avoid clash with tr1::tuple: https://code.google.com/p/googletest/source/browse/trunk/README?r=589#257
-  add_definitions(-DGTEST_USE_OWN_TR1_TUPLE=0)
+target_compile_definitions(
+  ${PROJECT_NAME}
+  INTERFACE
+  "STRICT_ANSI"
+)
 
-  catkin_add_gtest(${PROJECT_NAME}-test
-    test/test_main.cpp
-    test/maths.cpp
-    test/serialization_macros.cpp
-    test/numerical_comparisons.cpp
-    test/hash_id.cpp
-    )
-  target_link_libraries(${PROJECT_NAME}-test pthread)
-endif()
+target_compile_features(
+  ${PROJECT_NAME}
+  INTERFACE
+  cxx_std_14
+)
+
+set(INSTALL_CMAKEDIR ${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/cmake)
+
+install(DIRECTORY include/ DESTINATION include/${PROJECT_NAME})
+
+install(
+  TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}Targets
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
+
+install(
+  EXPORT ${PROJECT_NAME}Targets
+  FILE ${PROJECT_NAME}Targets.cmake
+  NAMESPACE ${PROJECT_NAME}::
+  DESTINATION ${INSTALL_CMAKEDIR})
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Config.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+  INSTALL_DESTINATION ${INSTALL_CMAKEDIR})
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+  COMPATIBILITY SameMajorVersion)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+        DESTINATION ${INSTALL_CMAKEDIR})
+
+enable_testing()
+add_subdirectory(test)
