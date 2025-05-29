@@ -50,14 +50,14 @@ endif()
 
 target_compile_options(
   ${PROJECT_NAME}
-  INTERFACE
+  PUBLIC
   "-Wall"
   "-Wextra"
 )
 
 target_compile_features(
   ${PROJECT_NAME}
-  INTERFACE
+  PUBLIC
   cxx_std_14
 )
 
