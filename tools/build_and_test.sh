@@ -8,6 +8,7 @@ packages=(
     "ethz_apriltag2" \
     "sm_common" \
     "sm_logging" \
+    "sm_property_tree" \
     "sm_random" \
 )
 
