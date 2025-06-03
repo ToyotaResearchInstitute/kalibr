@@ -10,6 +10,7 @@ packages=(
     "sm_common" \
     "sm_eigen" \
     "sm_logging" \
+    "sm_opencv" \
     "sm_random" \
 )
 
