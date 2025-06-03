@@ -1,7 +1,7 @@
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
-find_dependency(Boost)
+find_dependency(Boost COMPONENTS system serialization)
 find_dependency(Eigen3)
 find_dependency(sm_common)
 find_dependency(sm_random)
