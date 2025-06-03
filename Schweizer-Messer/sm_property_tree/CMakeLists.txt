@@ -19,8 +19,8 @@ add_library(${PROJECT_NAME}
 
 target_include_directories(${PROJECT_NAME}
 PUBLIC
-$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -30,28 +30,22 @@ target_link_libraries(${PROJECT_NAME}
   sm_common::sm_common
 )
 
-target_link_libraries(
-  ${PROJECT_NAME}
-  INTERFACE
-  Boost::system
-)
-
 target_compile_options(
   ${PROJECT_NAME}
-  INTERFACE
+  PUBLIC
   "-Wall"
   "-Wextra"
 )
 
 target_compile_definitions(
   ${PROJECT_NAME}
-  INTERFACE
-  "STRICT_ANSI"
+  PUBLIC
+  "__STRICT_ANSI__"
 )
 
 target_compile_features(
   ${PROJECT_NAME}
-  INTERFACE
+  PUBLIC
   cxx_std_14
 )
 
