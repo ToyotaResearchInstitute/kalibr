@@ -2,10 +2,10 @@
  * @file   assert_macros.hpp
  * @author Paul Furgale <paul.furgale@gmail.com>
  * @date   Mon Dec 12 11:53:43 2011
- * 
+ *
  * @brief  Code for checking if Eigen matrices are finite. It is slow. Use sparingly.
- * 
- * 
+ *
+ *
  */
 
 
