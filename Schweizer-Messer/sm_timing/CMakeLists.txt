@@ -1,62 +1,82 @@
-cmake_minimum_required(VERSION 3.0.2)
-project(sm_timing)
+cmake_minimum_required(VERSION 3.28.0)
 
-set(CMAKE_CXX_STANDARD 14)
-
-find_package(catkin REQUIRED COMPONENTS sm_common sm_random)
-include_directories(${catkin_INCLUDE_DIRS})
-find_package(Boost REQUIRED COMPONENTS system)
-
-catkin_package(
-  INCLUDE_DIRS include  ${catkin_INCLUDE_DIRS}
-  LIBRARIES ${PROJECT_NAME}
-  CATKIN_DEPENDS sm_common sm_random
-  DEPENDS
+project(sm_timing
+  VERSION 0.0.1
+  DESCRIPTION "Timing utilities"
+  LANGUAGES CXX
 )
-add_definitions(-D__STRICT_ANSI__)
 
-include_directories(include ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
-
-##############
-## Building ##
-##############
+find_package(Boost REQUIRED COMPONENTS system)
+find_package(sm_common REQUIRED)
 
 add_library(${PROJECT_NAME}
   src/Timer.cpp
   src/NsecTimeUtilities.cpp
 )
-target_link_libraries(${PROJECT_NAME} 
-                      ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
-##################
-## Installation ##
-##################
-
-install(TARGETS ${PROJECT_NAME}
-ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+target_include_directories(${PROJECT_NAME}
+  PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
 
-## Mark cpp header files for installation
-install(DIRECTORY include/
-DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+target_link_libraries(${PROJECT_NAME}
+  PUBLIC
+  Boost::system
+  sm_common::sm_common
 )
 
-#############
-## Testing ##
-#############
-if(CATKIN_ENABLE_TESTING)
-  # Avoid clash with tr1::tuple: https://code.google.com/p/googletest/source/browse/trunk/README?r=589#257
-  add_definitions(-DGTEST_USE_OWN_TR1_TUPLE=0)
+target_compile_options(
+  ${PROJECT_NAME}
+  PUBLIC
+  "-Wall"
+  "-Wextra"
+)
 
-  ## Add gtest based cpp test target and link libraries
-  catkin_add_gtest(${PROJECT_NAME}-test
-    test/test_main.cpp
-    test/TestTimestampCorrector.cpp
-    test/TestNsecTimeUtilities.cpp
-    )
-  if(TARGET ${PROJECT_NAME}-test)
-    target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME} pthread)
-  endif()
+target_compile_definitions(
+  ${PROJECT_NAME}
+  PUBLIC
+  "__STRICT_ANSI__"
+)
+
+target_compile_features(
+  ${PROJECT_NAME}
+  PUBLIC
+  cxx_std_14
+)
+
+set(INSTALL_CMAKEDIR ${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/cmake)
+
+install(DIRECTORY include/ DESTINATION include/${PROJECT_NAME})
+
+install(
+  TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}Targets
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
+
+install(
+  EXPORT ${PROJECT_NAME}Targets
+  FILE ${PROJECT_NAME}Targets.cmake
+  NAMESPACE ${PROJECT_NAME}::
+  DESTINATION ${INSTALL_CMAKEDIR})
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Config.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+  INSTALL_DESTINATION ${INSTALL_CMAKEDIR})
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+  COMPATIBILITY SameMajorVersion)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+        DESTINATION ${INSTALL_CMAKEDIR})
+
+if(BUILD_TESTING)
+  find_package(sm_random REQUIRED)
+  enable_testing()
+  add_subdirectory(test)
 endif()

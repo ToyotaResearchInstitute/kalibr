@@ -12,6 +12,7 @@ packages=(
     "sm_logging" \
     "sm_opencv" \
     "sm_random" \
+    "sm_timing" \
 )
 
 echo "=== Building packages ==="
