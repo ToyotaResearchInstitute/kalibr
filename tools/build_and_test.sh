@@ -6,6 +6,7 @@ set -e
 packages=(
     "aslam_time" \
     "ethz_apriltag2" \
+    "sm_boost" \
     "sm_common" \
     "sm_eigen" \
     "sm_logging" \
