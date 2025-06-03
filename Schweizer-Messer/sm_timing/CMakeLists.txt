@@ -36,7 +36,7 @@ target_compile_options(
 target_compile_definitions(
   ${PROJECT_NAME}
   INTERFACE
-  "STRICT_ANSI"
+  "__STRICT_ANSI__"
 )
 
 target_compile_features(
