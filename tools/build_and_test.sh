@@ -11,6 +11,7 @@ packages=(
     "sm_eigen" \
     "sm_logging" \
     "sm_opencv" \
+    "sm_property_tree" \
     "sm_random" \
     "sm_timing" \
 )
