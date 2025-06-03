@@ -28,8 +28,7 @@
 #endif
 
 #include <boost/archive/basic_archive.hpp>
-#include <boost/detail/endian.hpp>
-
+#include <boost/predef/other/endian.h>
 
 namespace boost {
     namespace archive {
@@ -37,10 +36,6 @@ enum portable_binary_archive_flags {
     endian_big        = 0x4000,
     endian_little     = 0x8000
 };
-
-//#if ( endian_big <= boost::archive::flags_last )
-//#error archive flags conflict
-//#endif
 
 inline void
 reverse_bytes(char size, char *address){
