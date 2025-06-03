@@ -28,20 +28,20 @@ target_link_libraries(${PROJECT_NAME}
 
 target_compile_options(
   ${PROJECT_NAME}
-  INTERFACE
+  PUBLIC
   "-Wall"
   "-Wextra"
 )
 
 target_compile_definitions(
   ${PROJECT_NAME}
-  INTERFACE
+  PUBLIC
   "__STRICT_ANSI__"
 )
 
 target_compile_features(
   ${PROJECT_NAME}
-  INTERFACE
+  PUBLIC
   cxx_std_14
 )
 
