@@ -97,6 +97,7 @@ TEST(QuaternionAlgebraTestSuite, testAxisAngle2QuatAndBack)
   const double eps = std::numeric_limits<double>::epsilon();
   try {
     using namespace sm::kinematics;
+    std::srand(0);
     for(int i = 0; i < 1000; i++)
     {
       // Create a random quaternion
@@ -104,10 +105,6 @@ TEST(QuaternionAlgebraTestSuite, testAxisAngle2QuatAndBack)
       sm::eigen::assertNear(q, axisAngle2quat(quat2AxisAngle(q)), q.block<3,1>(0, 0).norm() * eps * 20, SM_SOURCE_FILE_POS, "");
 
       // Create a random point in R3
-      // Set a known seed to get reproducible results, since some edge cases can turn the quaternion (-q), which
-      // represents the same rotation, but has a different axis-angle representation.
-      // To improve this test we need to extract the "near" concept and assert that is near v_b or -v_b.
-      std::srand((unsigned int) time(0));
       Eigen::Vector3d v_b; v_b.setRandom();
       double tolerance;
       if(i % 2 == 0){
@@ -120,7 +117,15 @@ TEST(QuaternionAlgebraTestSuite, testAxisAngle2QuatAndBack)
         }
       }
       tolerance = v_b.norm() * eps * 40;
-      sm::eigen::assertNear(v_b, quat2AxisAngle(axisAngle2quat(v_b)), tolerance, SM_SOURCE_FILE_POS, Stringer() << "axisAngle2QuatAndBack is too little accurate : \naA2Q(v_b)="<< axisAngle2quat(v_b) << "\nv_b.norm() - 2Pi=" << (v_b.norm() - M_PI * 2) );
+      auto result = quat2AxisAngle(axisAngle2quat(v_b));
+      // Make sure the axis-angle representation is not inverted.
+      // Since the axis-angle representation is not unique, both
+      // rotate angle theta over axis and rotate angle -theta over -axis
+      // are valid representations of the same rotation.
+      if (std::signbit(result(0)) != std::signbit(v_b(0))) {
+        result *= -1.0;
+      }
+      sm::eigen::assertNear(v_b, result, tolerance, SM_SOURCE_FILE_POS, Stringer() << "axisAngle2QuatAndBack is too little accurate : \naA2Q(v_b)="<< axisAngle2quat(v_b) << "\nv_b.norm() - 2Pi=" << (v_b.norm() - M_PI * 2) );
     }
   } catch(const std::exception & e)
   {
