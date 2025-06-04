@@ -14,6 +14,7 @@ packages=(
     "sm_property_tree" \
     "sm_random" \
     "sm_timing" \
+    "sparse_block_matrix" \
 )
 
 echo "=== Building packages ==="

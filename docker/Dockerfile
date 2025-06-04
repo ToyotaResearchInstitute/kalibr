@@ -6,7 +6,7 @@ RUN apt update && apt install -y \
     python3-venv
 
 RUN apt update && apt install -y \
-    # aslam_time, sm-common
+    # most of the libraries depend on boost
     libboost-all-dev \
     # gtest
     libgtest-dev \
@@ -15,6 +15,8 @@ RUN apt update && apt install -y \
     libeigen3-dev \
     # ethz_apriltag2
     libopencv-dev \
+    # sparse_block_matrix
+    libsuitesparse-dev \
     # ethz_apriltag2 (demo)
     libv4l-dev
 
