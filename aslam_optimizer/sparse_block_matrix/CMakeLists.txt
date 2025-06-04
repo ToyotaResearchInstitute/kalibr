@@ -79,5 +79,11 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
               "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
         DESTINATION ${INSTALL_CMAKEDIR})
 
+# We need to export FindSuiteSparse.cmake to the user
+# IMPORTANT: The user depending on this package must set the
+# Module path to the cmake directory of this package (once installed).
+install(FILES ${CMAKE_CURRENT_LIST_DIR}/cmake/FindSuiteSparse.cmake
+        DESTINATION ${INSTALL_CMAKEDIR})
+
 enable_testing()
 add_subdirectory(test)
