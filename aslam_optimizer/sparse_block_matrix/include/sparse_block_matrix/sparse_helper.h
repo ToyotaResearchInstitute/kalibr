@@ -1,16 +1,16 @@
 // g2o - General Graph Optimization
 // Copyright (C) 2011 R. Kuemmerle, G. Grisetti, W. Burgard
-// 
+//
 // g2o is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // g2o is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU Lesser General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -60,8 +60,8 @@ namespace {
   bool writeCCSMatrix(const char* filename, int rows, int cols, const T* p, const T* i, const double* v, bool upperTriangleSymmetric = true);
 
  // bool writeCCSMatrix(const char* filename, int rows, int cols, const int* Ap, const int* Ai, const double* Ax, bool upperTriangleSymmetric = true);
-    
-    
+
+
     /**
      * \brief Our extension of the CHOLMOD matrix struct
      *  used to express sparseBlockMatrix as a Cholmod Sparse Matrix
@@ -75,7 +75,7 @@ namespace {
   template<>
   struct IntType< long >
   {
-      static const int intType = CHOLMOD_INTLONG;
+      static const int intType = CHOLMOD_LONG;
   };
   template<>
   struct IntType< int >
@@ -113,9 +113,9 @@ namespace {
         }
         size_t columnsAllocated;
     };
-    
-    
-    
+
+
+
 
 
 } // end namespace
