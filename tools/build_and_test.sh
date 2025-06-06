@@ -6,6 +6,7 @@ set -e
 packages=(
     "aslam_backend" \
     "aslam_time" \
+    "bsplines" \
     "ethz_apriltag2" \
     "sm_boost" \
     "sm_common" \
