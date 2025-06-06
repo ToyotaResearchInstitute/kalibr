@@ -20,16 +20,16 @@ TEST(QuaternionAlgebraTestSuite, testRotation)
     {
       // Create a random quaternion
       Eigen::Vector4d q_a_b = quatRandom();
-      
+
       // Create a random point in R3
       Eigen::Vector3d v_b;
       v_b.setRandom();
-      
+
       Eigen::Vector3d v_a1 = quat2r(q_a_b) * v_b;
       Eigen::Vector3d v_a2 = quatRotate(q_a_b, v_b);
-      
+
       sm::eigen::assertNear(v_a1, v_a2, 1e-10,SM_SOURCE_FILE_POS, "The rotation matrix And shortcut rotations are not equal");
-      
+
     }
   } catch(const std::exception & e)
   {
@@ -97,6 +97,7 @@ TEST(QuaternionAlgebraTestSuite, testAxisAngle2QuatAndBack)
   const double eps = std::numeric_limits<double>::epsilon();
   try {
     using namespace sm::kinematics;
+    std::srand(0);
     for(int i = 0; i < 1000; i++)
     {
       // Create a random quaternion
@@ -116,7 +117,15 @@ TEST(QuaternionAlgebraTestSuite, testAxisAngle2QuatAndBack)
         }
       }
       tolerance = v_b.norm() * eps * 40;
-      sm::eigen::assertNear(v_b, quat2AxisAngle(axisAngle2quat(v_b)), tolerance, SM_SOURCE_FILE_POS, Stringer() << "axisAngle2QuatAndBack is too little accurate : \naA2Q(v_b)="<< axisAngle2quat(v_b) << "\nv_b.norm() - 2Pi=" << (v_b.norm() - M_PI * 2) );
+      auto result = quat2AxisAngle(axisAngle2quat(v_b));
+      // Make sure the axis-angle representation is not inverted.
+      // Since the axis-angle representation is not unique, both
+      // rotate angle theta over axis and rotate angle -theta over -axis
+      // are valid representations of the same rotation.
+      if (std::signbit(result(0)) != std::signbit(v_b(0))) {
+        result *= -1.0;
+      }
+      sm::eigen::assertNear(v_b, result, tolerance, SM_SOURCE_FILE_POS, Stringer() << "axisAngle2QuatAndBack is too little accurate : \naA2Q(v_b)="<< axisAngle2quat(v_b) << "\nv_b.norm() - 2Pi=" << (v_b.norm() - M_PI * 2) );
     }
   } catch(const std::exception & e)
   {

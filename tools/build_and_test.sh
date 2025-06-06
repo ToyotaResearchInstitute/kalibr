@@ -9,6 +9,7 @@ packages=(
     "sm_boost" \
     "sm_common" \
     "sm_eigen" \
+    "sm_kinematics" \
     "sm_logging" \
     "sm_opencv" \
     "sm_property_tree" \
