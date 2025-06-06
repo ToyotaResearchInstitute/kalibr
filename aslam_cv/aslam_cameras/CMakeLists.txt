@@ -1,91 +1,117 @@
-cmake_minimum_required(VERSION 3.0.2)
-project(aslam_cameras)
+cmake_minimum_required(VERSION 3.28.0)
 
-ADD_DEFINITIONS(-DASLAM_USE_ROS)
-
-find_package(catkin REQUIRED COMPONENTS
-  sm_common
-  sm_eigen
-  sm_boost
-  sm_kinematics
-  sm_logging
-  aslam_time
-  sm_opencv
-  sm_property_tree
-  opencv2_catkin
-  sm_random
+project(aslam_cameras
+  VERSION 0.1.0
+  DESCRIPTION "ASLAM Camera Models and Geometry"
+  LANGUAGES CXX
 )
-find_package(Boost REQUIRED COMPONENTS system serialization filesystem)
+
+find_package(Boost REQUIRED COMPONENTS filesystem serialization system)
 find_package(Eigen3 REQUIRED)
+find_package(aslam_time REQUIRED)
+find_package(sm_common REQUIRED)
+find_package(sm_boost REQUIRED)
+find_package(sm_eigen REQUIRED)
+find_package(sm_kinematics REQUIRED)
+find_package(sm_logging REQUIRED)
+find_package(sm_opencv REQUIRED)
+find_package(sm_property_tree REQUIRED)
+find_package(sm_random REQUIRED)
+find_package(OpenCV REQUIRED)
 
-catkin_package(
-  LIBRARIES ${PROJECT_NAME}
-  INCLUDE_DIRS include
-  DEPENDS Boost
-)
-
-include_directories(include ${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR} ${Boost_INCLUDE_DIRS})
-
-add_library(${PROJECT_NAME} 
+add_library(${PROJECT_NAME}
+  src/BackProjection.cpp
   src/CameraGeometryBase.cpp
-  src/GlobalShutter.cpp
-  src/RollingShutter.cpp
-  src/NoMask.cpp
-  src/NoDistortion.cpp
-  src/RadialTangentialDistortion.cpp
+  src/DescriptorBase.cpp
   src/EquidistantDistortion.cpp
   src/FovDistortion.cpp
-  src/ImageMask.cpp
-  src/GridCalibrationTargetObservation.cpp
+  src/FrameBase.cpp
+  src/GlobalShutter.cpp
   src/GridCalibrationTargetBase.cpp
   src/GridCalibrationTargetCheckerboard.cpp
   src/GridCalibrationTargetCirclegrid.cpp
+  src/GridCalibrationTargetObservation.cpp
   src/GridDetector.cpp
-  src/Triangulation.cpp
-  src/FrameBase.cpp
-  src/KeypointBase.cpp
-  src/DescriptorBase.cpp
-  src/BackProjection.cpp
-  src/Landmark.cpp
   src/Image.cpp
+  src/ImageMask.cpp
+  src/KeypointBase.cpp
+  src/Landmark.cpp
+  src/NoDistortion.cpp
+  src/NoMask.cpp
+  src/RadialTangentialDistortion.cpp
+  src/RollingShutter.cpp
+  src/Triangulation.cpp
 )
-target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
+target_include_directories(${PROJECT_NAME}
+  PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+  ${OpenCV_INCLUDE_DIRS}
+)
+
+target_link_libraries(${PROJECT_NAME}
+  PUBLIC
+  Boost::filesystem
+  Boost::serialization
+  Boost::system
+  Eigen3::Eigen
+  aslam_time::aslam_time
+  sm_common::sm_common
+  sm_boost::sm_boost
+  sm_eigen::sm_eigen
+  sm_kinematics::sm_kinematics
+  sm_logging::sm_logging
+  sm_opencv::sm_opencv
+  sm_property_tree::sm_property_tree
+  sm_random::sm_random
+  ${OpenCV_LIBS}
+)
+
+target_compile_options(
+  ${PROJECT_NAME}
+  PUBLIC
+  "-Wall"
+  "-Wextra"
+)
+
+target_compile_features(
+  ${PROJECT_NAME}
+  PUBLIC
+  cxx_std_14
+)
+
 target_compile_options(${PROJECT_NAME} PUBLIC "-Wno-deprecated-copy") # TODO: Fix...
 
-if(CATKIN_ENABLE_TESTING)
-  # Avoid clash with tr1::tuple: https://code.google.com/p/googletest/source/browse/trunk/README?r=589#257
-  add_definitions(-DGTEST_USE_OWN_TR1_TUPLE=0)
+set(INSTALL_CMAKEDIR ${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/cmake)
 
-  catkin_add_gtest(${PROJECT_NAME}_tests
-    test/test_main.cpp
-    test/PinholeCameraGeometry.cpp
-    test/OmniCameraGeometry.cpp
-    test/ExtendedUnifiedCameraGeometry.cpp
-    test/DoubleSphereCameraGeometry.cpp
-    test/RadialTangentialDistortion.cpp
-    test/EquidistantDistortion.cpp
-    test/FovDistortion.cpp
-    test/Triangulation.cpp
-    test/testFrame.cpp
-    test/GridCalibration.cpp
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/test
-  )
-  SET(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS} -lpthread")
+install(DIRECTORY include/ DESTINATION include/${PROJECT_NAME})
 
-  target_link_libraries(${PROJECT_NAME}_tests ${PROJECT_NAME})
-endif()
+install(
+  TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}Targets
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
 
-##################
-## Installation ##
-##################
+install(
+  EXPORT ${PROJECT_NAME}Targets
+  FILE ${PROJECT_NAME}Targets.cmake
+  NAMESPACE ${PROJECT_NAME}::
+  DESTINATION ${INSTALL_CMAKEDIR})
 
-install(TARGETS ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Config.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+  INSTALL_DESTINATION ${INSTALL_CMAKEDIR})
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+  COMPATIBILITY SameMajorVersion)
 
-## Mark cpp header files for installation
-install(DIRECTORY include/
-  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
-)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+        DESTINATION ${INSTALL_CMAKEDIR})
+
+enable_testing()
+add_subdirectory(test)

@@ -13,7 +13,7 @@ RUN apt update && apt install -y \
     libgmock-dev \
     # ethz_apriltag2
     libeigen3-dev \
-    # ethz_apriltag2
+    # ethz_apriltag2, aslam cameras
     libopencv-dev \
     # sparse_block_matrix
     libsuitesparse-dev \
