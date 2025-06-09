@@ -5,6 +5,7 @@ set -e
 # Currently we build and test the packages already migrated to ROS2 / Ubuntu noble.
 packages=(
     "aslam_backend" \
+    "aslam_backend_expressions" \
     "aslam_time" \
     "aslam_cameras" \
     "ethz_apriltag2" \
