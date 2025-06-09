@@ -7,6 +7,7 @@ packages=(
     "aslam_backend" \
     "aslam_backend_expressions" \
     "aslam_cameras" \
+    "aslam_imgproc" \
     "aslam_time" \
     "bsplines" \
     "ethz_apriltag2" \

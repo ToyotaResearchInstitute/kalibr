@@ -1,45 +1,87 @@
-cmake_minimum_required(VERSION 3.0.2)
-project(aslam_imgproc)
+cmake_minimum_required(VERSION 3.28.0)
 
+project(aslam_imgproc
+  VERSION 0.1.0
+  LANGUAGES CXX
+)
+
+find_package(aslam_cameras REQUIRED)
+find_package(aslam_time REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)
-
-find_package(catkin REQUIRED COMPONENTS
-  sm_common
-  sm_common
-  sm_eigen
-  sm_random
-  sm_boost
-  sm_kinematics
-  sm_opencv
-  sm_logging
-  sm_property_tree
-  aslam_time
-  aslam_cameras
-  opencv2_catkin
-  numpy_eigen
-)
-
-catkin_package(
-  LIBRARIES ${PROJECT_NAME}
-  INCLUDE_DIRS include
-)
-
-include_directories(include ${catkin_INCLUDE_DIRS})
+find_package(sm_boost REQUIRED)
+find_package(sm_common REQUIRED)
+find_package(sm_eigen REQUIRED)
+find_package(sm_kinematics REQUIRED)
+find_package(sm_logging REQUIRED)
+find_package(sm_opencv REQUIRED)
+find_package(sm_property_tree REQUIRED)
+find_package(sm_random REQUIRED)
 
 add_library(${PROJECT_NAME} src/UndistorterBase.cpp)
-target_compile_options(${PROJECT_NAME} PUBLIC -Wno-deprecated-copy -Wno-maybe-uninitialized)
-target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
 
-##################
-## Installation ##
-##################
-install(TARGETS ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+target_include_directories(${PROJECT_NAME}
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
 
-## Mark cpp header files for installation
-install(DIRECTORY include/
-  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+target_link_libraries(
+  ${PROJECT_NAME}
+  PUBLIC
+  aslam_cameras::aslam_cameras
+  aslam_time::aslam_time
+  Boost::system
+  sm_boost::sm_boost
+  sm_common::sm_common
+  sm_eigen::sm_eigen
+  sm_kinematics::sm_kinematics
+  sm_logging::sm_logging
+  sm_opencv::sm_opencv
+  sm_property_tree::sm_property_tree
+  sm_random::sm_random
 )
+
+target_compile_options(
+  ${PROJECT_NAME}
+  PUBLIC
+  "-Wall"
+  "-Wextra"
+  "-Wno-deprecated-copy"
+  "-Wno-maybe-uninitialized"
+)
+
+target_compile_features(
+  ${PROJECT_NAME}
+  PUBLIC
+  cxx_std_14
+)
+
+set(INSTALL_CMAKEDIR ${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/cmake)
+
+install(DIRECTORY include/ DESTINATION include/${PROJECT_NAME})
+
+install(
+  TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}Targets
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
+
+install(
+  EXPORT ${PROJECT_NAME}Targets
+  FILE ${PROJECT_NAME}Targets.cmake
+  NAMESPACE ${PROJECT_NAME}::
+  DESTINATION ${INSTALL_CMAKEDIR})
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Config.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+  INSTALL_DESTINATION ${INSTALL_CMAKEDIR})
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+  COMPATIBILITY SameMajorVersion)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+        DESTINATION ${INSTALL_CMAKEDIR})
