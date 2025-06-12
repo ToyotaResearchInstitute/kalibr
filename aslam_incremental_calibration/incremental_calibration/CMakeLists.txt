@@ -1,19 +1,18 @@
-cmake_minimum_required(VERSION 3.0.2)
-project(incremental_calibration)
+cmake_minimum_required(VERSION 3.28.0)
 
-set(CMAKE_CXX_STANDARD 14)
-
-find_package(catkin REQUIRED COMPONENTS sm_eigen aslam_backend)
-find_package(Boost REQUIRED COMPONENTS system thread)
-find_package(Eigen3 REQUIRED)
-
-catkin_package(
-  LIBRARIES ${PROJECT_NAME}
-  INCLUDE_DIRS include
-  CATKIN_DEPENDS sm_eigen
+project(incremental_calibration
+  VERSION 0.1.0
+  LANGUAGES CXX
 )
 
-include_directories(include ${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
+find_package(aslam_backend REQUIRED)
+find_package(Boost REQUIRED COMPONENTS system thread)
+find_package(Eigen3 REQUIRED)
+find_package(sm_eigen REQUIRED)
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
+find_package(SuiteSparse REQUIRED NO_CONFIG)
+
 
 add_library(${PROJECT_NAME}
   src/base/Serializable.cpp
@@ -42,35 +41,67 @@ add_library(${PROJECT_NAME}
   src/algorithms/marginalize.cpp
   src/algorithms/linalg.cpp
 )
-target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${TBB_LIBRARIES})
 
-# if(CATKIN_ENABLE_TESTING)
-#   # Avoid clash with tr1::tuple:
-#   # https://code.google.com/p/googletest/source/browse/trunk/README?r=589#257
-#   add_definitions(-DGTEST_USE_OWN_TR1_TUPLE=0)
-
-#   catkin_add_gtest(${PROJECT_NAME}_test
-#     test/test_main.cpp
-#     test/VectorDesignVariableTest.cpp
-#     test/AlgorithmsTest.cpp
-#     test/OptimizationProblemTest.cpp
-#     test/IncrementalOptimizationProblemTest.cpp
-#     test/LinearSolverTest.cpp
-#     )
-#   target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
-# endif()
-
-##################
-## Installation ##
-##################
-
-install(TARGETS ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+target_include_directories(${PROJECT_NAME}
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+    ${SUITESPARSE_INCLUDE_DIRS}
 )
 
-## Mark cpp header files for installation
-install(DIRECTORY include/
-  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+target_link_libraries(
+  ${PROJECT_NAME}
+  PUBLIC
+  aslam_backend::aslam_backend
+  Boost::system
+  Boost::thread
+  Eigen3::Eigen
+  sm_eigen::sm_eigen
+  ${SUITESPARSE_LIBRARIES}
 )
+
+target_compile_options(
+  ${PROJECT_NAME}
+  PUBLIC
+  "-Wall"
+  "-Wextra"
+)
+
+target_compile_features(
+  ${PROJECT_NAME}
+  PUBLIC
+  cxx_std_14
+)
+
+set(INSTALL_CMAKEDIR ${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/cmake)
+
+install(DIRECTORY include/ DESTINATION include/${PROJECT_NAME})
+
+install(
+  TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}Targets
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
+
+install(
+  EXPORT ${PROJECT_NAME}Targets
+  FILE ${PROJECT_NAME}Targets.cmake
+  NAMESPACE ${PROJECT_NAME}::
+  DESTINATION ${INSTALL_CMAKEDIR})
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Config.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+  INSTALL_DESTINATION ${INSTALL_CMAKEDIR})
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+  COMPATIBILITY SameMajorVersion)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+        DESTINATION ${INSTALL_CMAKEDIR})
+
+enable_testing()
+add_subdirectory(test)

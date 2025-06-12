@@ -38,7 +38,7 @@
 
 #include "aslam/calibration/core/LinearSolverOptions.h"
 
-template <typename Entry> struct SuiteSparseQR_factorization;
+#include <SuiteSparseQR.hpp>
 
 namespace sm {
 
@@ -103,10 +103,10 @@ namespace aslam {
       virtual bool solveSystem(Eigen::VectorXd& dx);
       /// Helper function for dog leg implementation / steepest descent solution
       virtual double rhsJtJrhs();
-      /** 
+      /**
        * This function solves a system of equation using marginalization.
        * \brief Marginalization solver
-       * 
+       *
        * \return void
        * \param[in] A sparse matrix left-hand side
        * \param[in] b dense vector right-hand side
@@ -115,23 +115,23 @@ namespace aslam {
        */
       void solve(cholmod_sparse* A, cholmod_dense* b, std::ptrdiff_t j,
         Eigen::VectorXd& x);
-      /** 
+      /**
        * This function analyzes the marginalized matrix at index j. The goal
        * is to estimate the numerical null and column space, the covariance, the
        * covariance on the column space. All the results are cached in the
        * solver.
        * \brief Marginalization analyzer
-       * 
+       *
        * \return void
        * \param[in] A sparse matrix left-hand side
        * \param[in] j starting column index for the marginalization
        */
       void analyzeMarginal(cholmod_sparse* A, std::ptrdiff_t j);
-      /** 
+      /**
        * This function does the same as the previous one, except that it uses
        * the stored elements.
        * \brief Marginalization analyzer
-       * 
+       *
        * \return status
        */
       bool analyzeMarginal();
