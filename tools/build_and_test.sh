@@ -9,6 +9,7 @@ packages=(
     "aslam_cv_serialization" \
     "aslam_time" \
     "aslam_cameras" \
+    "aslam_imgproc" \
     "aslam_time" \
     "bsplines" \
     "ethz_apriltag2" \
