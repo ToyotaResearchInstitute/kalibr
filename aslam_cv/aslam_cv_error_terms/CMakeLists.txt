@@ -1,44 +1,99 @@
-cmake_minimum_required(VERSION 3.0.2)
-project(aslam_cv_error_terms)
+cmake_minimum_required(VERSION 3.28.0)
 
+project(aslam_cv_error_terms
+  VERSION 0.1.0
+  LANGUAGES CXX
+)
+
+find_package(aslam_backend REQUIRED)
+find_package(aslam_backend_expressions REQUIRED)
+find_package(aslam_cameras REQUIRED)
+find_package(aslam_cv_backend REQUIRED)
+find_package(aslam_splines REQUIRED)
+find_package(aslam_time REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)
-find_package(catkin REQUIRED COMPONENTS
-  sm_logging
-  sm_property_tree
-  sm_opencv
-  sm_kinematics
-  aslam_time
-  aslam_cameras
-  aslam_backend
-  aslam_cv_backend
-  aslam_backend_expressions
-  sm_boost
-  sm_eigen
-  sm_timing
-  sparse_block_matrix
-  opencv2_catkin
-  aslam_splines
+find_package(sm_boost REQUIRED)
+find_package(sm_eigen REQUIRED)
+find_package(sm_kinematics REQUIRED)
+find_package(sm_logging REQUIRED)
+find_package(sm_opencv REQUIRED)
+find_package(sm_property_tree REQUIRED)
+find_package(sm_timing REQUIRED)
+find_package(sparse_block_matrix REQUIRED)
+
+add_library(${PROJECT_NAME} INTERFACE)
+
+target_include_directories(
+  ${PROJECT_NAME}
+  INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+            "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
+  )
+
+target_link_libraries(
+  ${PROJECT_NAME}
+  INTERFACE
+  aslam_backend::aslam_backend
+  aslam_backend_expressions::aslam_backend_expressions
+  aslam_cameras::aslam_cameras
+  aslam_cv_backend::aslam_cv_backend
+  aslam_splines::aslam_splines
+  aslam_time::aslam_time
+  Boost::system
+  sm_boost::sm_boost
+  sm_eigen::sm_eigen
+  sm_kinematics::sm_kinematics
+  sm_logging::sm_logging
+  sm_opencv::sm_opencv
+  sm_property_tree::sm_property_tree
+  sm_timing::sm_timing
+  sparse_block_matrix::sparse_block_matrix
 )
 
-catkin_package(
-  INCLUDE_DIRS include
+target_compile_options(
+  ${PROJECT_NAME}
+  INTERFACE
+  "-Wall"
+  "-Wextra"
 )
 
-if(CATKIN_ENABLE_TESTING)
-  # Avoid clash with tr1::tuple: https://code.google.com/p/googletest/source/browse/trunk/README?r=589#257
-  add_definitions(-DGTEST_USE_OWN_TR1_TUPLE=0)
-
-  include_directories(include ${catkin_INCLUDE_DIRS})
-  # catkin_add_gtest(${PROJECT_NAME}_test
-  #   test/test_main.cpp
-  #   test/TestReprojectionError.cpp
-  # )
-  # target_link_libraries(${PROJECT_NAME}_test ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-endif()
-
-##################
-## Installation ##
-##################
-install(DIRECTORY include/
-  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+target_compile_definitions(
+  ${PROJECT_NAME}
+  INTERFACE
+  "STRICT_ANSI"
 )
+
+target_compile_features(
+  ${PROJECT_NAME}
+  INTERFACE
+  cxx_std_14
+)
+
+set(INSTALL_CMAKEDIR ${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/cmake)
+
+install(DIRECTORY include/ DESTINATION include/${PROJECT_NAME})
+
+install(
+  TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}Targets
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
+
+install(
+  EXPORT ${PROJECT_NAME}Targets
+  FILE ${PROJECT_NAME}Targets.cmake
+  NAMESPACE ${PROJECT_NAME}::
+  DESTINATION ${INSTALL_CMAKEDIR})
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Config.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+  INSTALL_DESTINATION ${INSTALL_CMAKEDIR})
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+  COMPATIBILITY SameMajorVersion)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+        DESTINATION ${INSTALL_CMAKEDIR})
