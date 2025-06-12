@@ -1,0 +1,14 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(sm_common)
+find_dependency(sm_timing)
+find_dependency(sm_eigen)
+find_dependency(sm_kinematics)
+find_dependency(sparse_block_matrix)
+
+include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@Targets.cmake")
+
+set(@PROJECT_NAME@_LIBRARIES @PROJECT_NAME@::@PROJECT_NAME@)
+
+check_required_components($@PROJECT_NAME@)
