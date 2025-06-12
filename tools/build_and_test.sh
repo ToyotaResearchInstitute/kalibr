@@ -12,6 +12,7 @@ packages=(
     "aslam_time" \
     "aslam_cameras" \
     "aslam_imgproc" \
+    "aslam_splines" \
     "aslam_time" \
     "bsplines" \
     "ethz_apriltag2" \
