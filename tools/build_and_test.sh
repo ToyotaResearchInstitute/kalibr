@@ -6,6 +6,7 @@ set -e
 packages=(
     "aslam_backend" \
     "aslam_backend_expressions" \
+    "aslam_cv_backend" \
     "aslam_cameras" \
     "aslam_time" \
     "bsplines" \
