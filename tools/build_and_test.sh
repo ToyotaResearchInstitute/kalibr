@@ -10,6 +10,7 @@ packages=(
     "aslam_time" \
     "bsplines" \
     "ethz_apriltag2" \
+    "incremental_calibration" \
     "sm_boost" \
     "sm_common" \
     "sm_eigen" \
