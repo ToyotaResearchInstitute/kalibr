@@ -6,9 +6,10 @@ set -e
 packages=(
     "aslam_backend" \
     "aslam_backend_expressions" \
+    "aslam_cameras" \
+    "aslam_cv_backend" \
     "aslam_cv_serialization" \
     "aslam_time" \
-    "aslam_cameras" \
     "aslam_imgproc" \
     "aslam_splines" \
     "aslam_time" \
