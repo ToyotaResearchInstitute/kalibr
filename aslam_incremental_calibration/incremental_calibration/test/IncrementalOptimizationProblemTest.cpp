@@ -41,13 +41,13 @@ public:
   DummyErrorTerm() = default;
   DummyErrorTerm(const DummyErrorTerm& other) = delete;
   DummyErrorTerm& operator = (const DummyErrorTerm& other) = delete;
-  virtual ~DummyErrorTerm() {};
+  ~DummyErrorTerm() {};
 protected:
-  virtual double evaluateErrorImplementation() {
+  double evaluateErrorImplementation() {
     return 0;
   };
-  virtual void evaluateJacobiansImplementation(
-    aslam::backend::JacobianContainer& J) {};
+  void evaluateJacobiansImplementation(
+    aslam::backend::JacobianContainer& J) const {};
 };
 
 using namespace aslam::calibration;
