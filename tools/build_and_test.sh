@@ -7,6 +7,7 @@ packages=(
     "aslam_backend" \
     "aslam_backend_expressions" \
     "aslam_cameras" \
+    "aslam_cameras_april" \
     "aslam_cv_backend" \
     "aslam_cv_error_terms" \
     "aslam_cv_serialization" \
