@@ -18,6 +18,7 @@ packages=(
     "bsplines" \
     "ethz_apriltag2" \
     "incremental_calibration" \
+    "kalibr2" \
     "sm_boost" \
     "sm_common" \
     "sm_eigen" \

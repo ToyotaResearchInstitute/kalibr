@@ -2,9 +2,9 @@ name: CI pipeline
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, dev/kalibr2 ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, dev/kalibr2 ]
 
 jobs:
   build_and_test:
