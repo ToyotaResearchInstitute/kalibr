@@ -15,6 +15,14 @@ struct Image {
   cv::Mat image;
 };
 
+
+class ImageReader {
+  public:
+  virtual Image ReadNext() = 0;
+  virtual bool HasNext() const = 0;
+};
+
+
 /// Transform an Image into a GridCalibrationTargetObservation using the provided GridDetector.
 std::optional<aslam::cameras::GridCalibrationTargetObservation> ToObservation(const Image& image, const aslam::cameras::GridDetector& detector);
 
