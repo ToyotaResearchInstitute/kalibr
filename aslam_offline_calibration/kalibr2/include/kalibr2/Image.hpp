@@ -29,4 +29,10 @@ keep it around.
 std::optional<aslam::cameras::GridCalibrationTargetObservation> ToObservation(
     const Image& image, const aslam::cameras::GridDetector& detector);
 
+class ImageReader {
+  public:
+  virtual Image ReadNext() = 0;
+  virtual bool HasNext() const = 0;
+};
+
 }  // namespace kalibr2
