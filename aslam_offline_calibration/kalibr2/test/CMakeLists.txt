@@ -1,7 +1,6 @@
 find_package(GTest MODULE)
 
 add_executable(${PROJECT_NAME}-test
-    # ObservationDatabaseTest.cpp
     ImageTest.cpp
 )
 
