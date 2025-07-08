@@ -42,7 +42,7 @@ target_compile_options(
 target_compile_features(
   ${PROJECT_NAME}
   PUBLIC
-  cxx_std_14
+  cxx_std_17
 )
 
 set(INSTALL_CMAKEDIR ${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/cmake)
