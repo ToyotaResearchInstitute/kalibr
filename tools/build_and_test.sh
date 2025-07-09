@@ -19,7 +19,7 @@ packages=(
     "ethz_apriltag2" \
     "incremental_calibration" \
     "kalibr2" \
-    "ros2_kalibr2" \
+    "kalibr2_ros" \
     "sm_boost" \
     "sm_common" \
     "sm_eigen" \

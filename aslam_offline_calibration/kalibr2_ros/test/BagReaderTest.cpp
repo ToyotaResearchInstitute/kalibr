@@ -4,7 +4,7 @@
 
 #include <kalibr2/Image.hpp>
 #include <kalibr2/CameraModels.hpp>
-#include <ros2_kalibr2/BagReader.hpp>
+#include <kalibr2_ros/BagReader.hpp>
 
 #include <aslam/cameras/GridDetector.hpp>
 #include <aslam/cameras/GridCalibrationTargetAprilgrid.hpp>
