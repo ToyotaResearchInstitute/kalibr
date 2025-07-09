@@ -15,11 +15,12 @@ struct Image {
   cv::Mat image;
 };
 
-
+/// Interface for reading images from a source.
 class ImageReader {
   public:
   virtual Image ReadNext() = 0;
   virtual bool HasNext() const = 0;
+  virtual ~ImageReader() = default;
 };
 
 
