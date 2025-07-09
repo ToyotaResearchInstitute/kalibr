@@ -23,122 +23,114 @@ namespace kalibr2 {
 namespace models {
 
 struct Omni {
-    typedef aslam::cameras::OmniCameraGeometry Geometry;
-    typedef aslam::backend::ReprojectionError<Geometry> ReprojectionError;
-    typedef aslam::Frame<Geometry> Frame;
-    typedef aslam::backend::SimpleReprojectionError<Frame> ReprojectionErrorSimple;
-    typedef aslam::backend::CameraDesignVariable<Geometry> DesignVariable;
-    typedef aslam::cameras::NoDistortion Distortion;
-    typedef aslam::cameras::GlobalShutter Shutter;
-    typedef aslam::cameras::OmniProjection<Distortion> ProjectionType;
+    using Geometry = aslam::cameras::OmniCameraGeometry;
+    using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
+    using Frame = aslam::Frame<Geometry>;
+    using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
+    using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
+    using Distortion = aslam::cameras::NoDistortion;
+    using Shutter = aslam::cameras::GlobalShutter;
+    using ProjectionType = aslam::cameras::OmniProjection<Distortion>;
 };
 
 
 struct DistortedOmni {
-    typedef aslam::cameras::DistortedOmniCameraGeometry Geometry;
-    typedef aslam::backend::ReprojectionError<Geometry> ReprojectionError;
-    typedef aslam::Frame<Geometry> Frame;
-    typedef aslam::backend::SimpleReprojectionError<Frame> ReprojectionErrorSimple;
-    typedef aslam::backend::CameraDesignVariable<Geometry> DesignVariable;
-    typedef aslam::cameras::RadialTangentialDistortion Distortion;
-    typedef aslam::cameras::GlobalShutter Shutter;
-    typedef aslam::cameras::OmniProjection<Distortion> ProjectionType;
+    using Geometry = aslam::cameras::DistortedOmniCameraGeometry;
+    using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
+    using Frame = aslam::Frame<Geometry>;
+    using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
+    using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
+    using Distortion = aslam::cameras::RadialTangentialDistortion;
+    using Shutter = aslam::cameras::GlobalShutter;
+    using ProjectionType = aslam::cameras::OmniProjection<Distortion>;
 };
-
 
 struct DistortedOmniRs {
-    typedef aslam::cameras::DistortedOmniRsCameraGeometry Geometry;
-    typedef aslam::backend::ReprojectionError<Geometry> ReprojectionError;
-    typedef aslam::Frame<Geometry> Frame;
-    typedef aslam::backend::SimpleReprojectionError<Frame> ReprojectionErrorSimple;
-    typedef aslam::backend::CameraDesignVariable<Geometry> DesignVariable;
-    typedef aslam::cameras::RadialTangentialDistortion Distortion;
-    typedef aslam::cameras::RollingShutter Shutter;
-    typedef aslam::cameras::OmniProjection<Distortion> ProjectionType;
+    using Geometry = aslam::cameras::DistortedOmniRsCameraGeometry;
+    using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
+    using Frame = aslam::Frame<Geometry>;
+    using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
+    using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
+    using Distortion = aslam::cameras::RadialTangentialDistortion;
+    using Shutter = aslam::cameras::RollingShutter;
+    using ProjectionType = aslam::cameras::OmniProjection<Distortion>;
 };
-
 
 struct DistortedPinhole {
-    typedef aslam::cameras::DistortedPinholeCameraGeometry Geometry;
-    typedef aslam::backend::ReprojectionError<Geometry> ReprojectionError;
-    typedef aslam::Frame<Geometry> Frame;
-    typedef aslam::backend::SimpleReprojectionError<Frame> ReprojectionErrorSimple;
-    typedef aslam::backend::CameraDesignVariable<Geometry> DesignVariable;
-    typedef aslam::cameras::RadialTangentialDistortion Distortion;
-    typedef aslam::cameras::GlobalShutter Shutter;
-    typedef aslam::cameras::PinholeProjection<Distortion> ProjectionType;
+    using Geometry = aslam::cameras::DistortedPinholeCameraGeometry;
+    using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
+    using Frame = aslam::Frame<Geometry>;
+    using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
+    using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
+    using Distortion = aslam::cameras::RadialTangentialDistortion;
+    using Shutter = aslam::cameras::GlobalShutter;
+    using ProjectionType = aslam::cameras::PinholeProjection<Distortion>;
 };
-
 
 struct DistortedPinholeRs {
-    typedef aslam::cameras::DistortedPinholeRsCameraGeometry Geometry;
-    typedef aslam::backend::ReprojectionError<Geometry> ReprojectionError;
-    typedef aslam::Frame<Geometry> Frame;
-    typedef aslam::backend::SimpleReprojectionError<Frame> ReprojectionErrorSimple;
-    typedef aslam::backend::CameraDesignVariable<Geometry> DesignVariable;
-    typedef aslam::cameras::RadialTangentialDistortion Distortion;
-    typedef aslam::cameras::RollingShutter Shutter;
-    typedef aslam::cameras::PinholeProjection<Distortion> ProjectionType;
+    using Geometry = aslam::cameras::DistortedPinholeRsCameraGeometry;
+    using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
+    using Frame = aslam::Frame<Geometry>;
+    using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
+    using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
+    using Distortion = aslam::cameras::RadialTangentialDistortion;
+    using Shutter = aslam::cameras::RollingShutter;
+    using ProjectionType = aslam::cameras::PinholeProjection<Distortion>;
 };
-
 
 struct EquidistantPinhole {
-    typedef aslam::cameras::EquidistantDistortedPinholeCameraGeometry Geometry;
-    typedef aslam::backend::ReprojectionError<Geometry> ReprojectionError;
-    typedef aslam::Frame<Geometry> Frame;
-    typedef aslam::backend::SimpleReprojectionError<Frame> ReprojectionErrorSimple;
-    typedef aslam::backend::CameraDesignVariable<Geometry> DesignVariable;
-    typedef aslam::cameras::EquidistantDistortion Distortion;
-    typedef aslam::cameras::GlobalShutter Shutter;
-    typedef aslam::cameras::PinholeProjection<Distortion> ProjectionType;
+    using Geometry = aslam::cameras::EquidistantDistortedPinholeCameraGeometry;
+    using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
+    using Frame = aslam::Frame<Geometry>;
+    using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
+    using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
+    using Distortion = aslam::cameras::EquidistantDistortion;
+    using Shutter = aslam::cameras::GlobalShutter;
+    using ProjectionType = aslam::cameras::PinholeProjection<Distortion>;
 };
-
 
 struct EquidistantPinholeRs {
-    typedef aslam::cameras::EquidistantDistortedPinholeRsCameraGeometry Geometry;
-    typedef aslam::backend::ReprojectionError<Geometry> ReprojectionError;
-    typedef aslam::Frame<Geometry> Frame;
-    typedef aslam::backend::SimpleReprojectionError<Frame> ReprojectionErrorSimple;
-    typedef aslam::backend::CameraDesignVariable<Geometry> DesignVariable;
-    typedef aslam::cameras::EquidistantDistortion Distortion;
-    typedef aslam::cameras::RollingShutter Shutter;
-    typedef aslam::cameras::PinholeProjection<Distortion> ProjectionType;
+    using Geometry = aslam::cameras::EquidistantDistortedPinholeRsCameraGeometry;
+    using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
+    using Frame = aslam::Frame<Geometry>;
+    using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
+    using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
+    using Distortion = aslam::cameras::EquidistantDistortion;
+    using Shutter = aslam::cameras::RollingShutter;
+    using ProjectionType = aslam::cameras::PinholeProjection<Distortion>;
 };
-
 
 struct FovPinhole {
-    typedef aslam::cameras::FovDistortedPinholeCameraGeometry Geometry;
-    typedef aslam::backend::ReprojectionError<Geometry> ReprojectionError;
-    typedef aslam::Frame<Geometry> Frame;
-    typedef aslam::backend::SimpleReprojectionError<Frame> ReprojectionErrorSimple;
-    typedef aslam::backend::CameraDesignVariable<Geometry> DesignVariable;
-    typedef aslam::cameras::FovDistortion Distortion;
-    typedef aslam::cameras::GlobalShutter Shutter;
-    typedef aslam::cameras::PinholeProjection<Distortion> ProjectionType;
+    using Geometry = aslam::cameras::FovDistortedPinholeCameraGeometry;
+    using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
+    using Frame = aslam::Frame<Geometry>;
+    using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
+    using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
+    using Distortion = aslam::cameras::FovDistortion;
+    using Shutter = aslam::cameras::GlobalShutter;
+    using ProjectionType = aslam::cameras::PinholeProjection<Distortion>;
 };
-
 
 struct ExtendedUnified {
-    typedef aslam::cameras::ExtendedUnifiedCameraGeometry Geometry;
-    typedef aslam::backend::ReprojectionError<Geometry> ReprojectionError;
-    typedef aslam::Frame<Geometry> Frame;
-    typedef aslam::backend::SimpleReprojectionError<Frame> ReprojectionErrorSimple;
-    typedef aslam::backend::CameraDesignVariable<Geometry> DesignVariable;
-    typedef aslam::cameras::NoDistortion Distortion;
-    typedef aslam::cameras::GlobalShutter Shutter;
-    typedef aslam::cameras::ExtendedUnifiedProjection<Distortion> ProjectionType;
+    using Geometry = aslam::cameras::ExtendedUnifiedCameraGeometry;
+    using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
+    using Frame = aslam::Frame<Geometry>;
+    using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
+    using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
+    using Distortion = aslam::cameras::NoDistortion;
+    using Shutter = aslam::cameras::GlobalShutter;
+    using ProjectionType = aslam::cameras::ExtendedUnifiedProjection<Distortion>;
 };
 
-
 struct DoubleSphere {
-    typedef aslam::cameras::DoubleSphereCameraGeometry Geometry;
-    typedef aslam::backend::ReprojectionError<Geometry> ReprojectionError;
-    typedef aslam::Frame<Geometry> Frame;
-    typedef aslam::backend::SimpleReprojectionError<Frame> ReprojectionErrorSimple;
-    typedef aslam::backend::CameraDesignVariable<Geometry> DesignVariable;
-    typedef aslam::cameras::NoDistortion Distortion;
-    typedef aslam::cameras::GlobalShutter Shutter;
-    typedef aslam::cameras::DoubleSphereProjection<Distortion> ProjectionType;
+    using Geometry = aslam::cameras::DoubleSphereCameraGeometry;
+    using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
+    using Frame = aslam::Frame<Geometry>;
+    using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
+    using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
+    using Distortion = aslam::cameras::NoDistortion;
+    using Shutter = aslam::cameras::GlobalShutter;
+    using ProjectionType = aslam::cameras::DoubleSphereProjection<Distortion>;
 };
 
 } // namespace models
