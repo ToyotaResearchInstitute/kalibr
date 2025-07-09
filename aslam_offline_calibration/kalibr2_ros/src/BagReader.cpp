@@ -35,17 +35,26 @@ std::unique_ptr<kalibr2::ImageReader> create_bag_reader(const std::string& bag_f
   filter.topics = {topic};
   reader->set_filter(filter);
 
-  for (const auto& topic_metadata : reader->get_all_topics_and_types()) {
-    if (topic_metadata.name == topic) {
-      if (topic_metadata.type == "sensor_msgs/msg/Image") {
-        return std::make_unique<kalibr2::ros::BagImageReader<sensor_msgs::msg::Image>>(std::move(reader));
-      } else if (topic_metadata.type == "sensor_msgs/msg/CompressedImage") {
-        return std::make_unique<kalibr2::ros::BagImageReader<sensor_msgs::msg::CompressedImage>>(std::move(reader));
-      } else {
-        throw std::runtime_error("Unsupported image type: " + topic_metadata.type);
-      }
+  auto topics_and_types = reader->get_all_topics_and_types();
+  const auto it = std::find_if(
+    topics_and_types.begin(), topics_and_types.end(),
+    [&topic](const rosbag2_storage::TopicMetadata& topic_metadata) {
+      return topic_metadata.name == topic;
     }
+  );
+
+  if (it == topics_and_types.end()) {
+    throw std::runtime_error("Topic not found in bag: " + topic);
   }
+
+  if (it->type == "sensor_msgs/msg/Image") {
+    return std::make_unique<kalibr2::ros::BagImageReader<sensor_msgs::msg::Image>>(std::move(reader));
+  } else if (it->type == "sensor_msgs/msg/CompressedImage") {
+    return std::make_unique<kalibr2::ros::BagImageReader<sensor_msgs::msg::CompressedImage>>(std::move(reader));
+  } else {
+    throw std::runtime_error("Unsupported image type: " + it->type);
+  }
+
 }
 
 } // namespace ros
