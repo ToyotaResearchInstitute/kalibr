@@ -21,8 +21,13 @@ jobs:
       - name: Install python packages
         run: pip install pre-commit
 
+      # Complete the files section to include all relevant files
+      # Prevent running the linter on old code, to maintain the history clean
       - name: Lint
-        run: pre-commit run --all-files --verbose --show-diff-on-failure
+        run: pre-commit run
+          --files
+          --verbose
+          --show-diff-on-failure
 
   build_and_test:
     runs-on: ubuntu-24.04
