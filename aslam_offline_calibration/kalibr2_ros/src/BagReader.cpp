@@ -1,4 +1,4 @@
-#include "ros2_kalibr2/BagReader.hpp"
+#include "kalibr2_ros/BagReader.hpp"
 
 
 rosbag2_storage::BagMetadata get_bag_metadata(const std::string& bag_file_path) {

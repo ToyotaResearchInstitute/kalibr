@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28.0)
 
-project(ros2_kalibr2
+project(kalibr2_ros
   VERSION 0.0.1
   DESCRIPTION "Kalibr ROS interface for reading ROS2 bags"
   LANGUAGES CXX
