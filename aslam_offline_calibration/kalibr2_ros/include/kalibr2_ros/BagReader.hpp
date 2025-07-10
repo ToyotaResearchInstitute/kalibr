@@ -25,8 +25,7 @@ template<typename MessageT>
 Image image_from_message(const MessageT& msg) {
   Image img;
   img.timestamp = aslam::Time(msg.header.stamp.sec, msg.header.stamp.nanosec);
-  img.image = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO8)->image;
-
+  img.image = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO8)->image.clone();
   return img;
 }
 
