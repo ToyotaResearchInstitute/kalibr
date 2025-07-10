@@ -5,6 +5,8 @@ namespace kalibr2 {
 
 namespace ros {
 
+namespace {
+
 rosbag2_storage::BagMetadata get_bag_metadata(const std::string& bag_file_path) {
   auto metadata_directory = std::filesystem::path(bag_file_path).parent_path();
   auto metadata_io = rosbag2_storage::MetadataIo();
@@ -19,8 +21,9 @@ rosbag2_storage::StorageOptions get_storage_options(const std::string& bag_file_
   return storage_options;
 }
 
+}
 
-std::unique_ptr<kalibr2::ImageReader> create_bag_reader(const std::string& bag_file_path, const std::string& topic) {
+std::unique_ptr<ImageReader> create_bag_reader(const std::string& bag_file_path, const std::string& topic) {
   auto bag_metadata = get_bag_metadata(bag_file_path);
   auto storage_options = get_storage_options(bag_file_path, bag_metadata);
   // Assuming the serialization format is CDR
@@ -48,9 +51,9 @@ std::unique_ptr<kalibr2::ImageReader> create_bag_reader(const std::string& bag_f
   }
 
   if (it->type == "sensor_msgs/msg/Image") {
-    return std::make_unique<kalibr2::ros::BagImageReader<sensor_msgs::msg::Image>>(std::move(reader));
+    return std::make_unique<BagImageReader<sensor_msgs::msg::Image>>(std::move(reader));
   } else if (it->type == "sensor_msgs/msg/CompressedImage") {
-    return std::make_unique<kalibr2::ros::BagImageReader<sensor_msgs::msg::CompressedImage>>(std::move(reader));
+    return std::make_unique<BagImageReader<sensor_msgs::msg::CompressedImage>>(std::move(reader));
   } else {
     throw std::runtime_error("Unsupported image type: " + it->type);
   }
