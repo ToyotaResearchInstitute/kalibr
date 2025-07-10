@@ -9,3 +9,4 @@ repos:
     rev: v20.1.7
     hooks:
       - id: clang-format
+        files: ^(kalibr2/|kalibr2_ros)
