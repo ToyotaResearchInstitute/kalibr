@@ -32,6 +32,8 @@ packages=(
     "sparse_block_matrix" \
 )
 
+source /opt/ros/jazzy/setup.bash
+
 echo "=== Building packages ==="
 colcon build --packages-select ${packages[@]}
 
