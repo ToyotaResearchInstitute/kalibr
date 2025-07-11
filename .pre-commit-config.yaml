@@ -3,10 +3,12 @@ repos:
     rev: v5.0.0
     hooks:
       - id: end-of-file-fixer
+        files: ^(aslam_offline_calibration/kalibr2|aslam_offline_calibration/kalibr2_ros)
       - id: trailing-whitespace
+        files: ^(aslam_offline_calibration/kalibr2|aslam_offline_calibration/kalibr2_ros)
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v20.1.7
     hooks:
       - id: clang-format
-        files: ^(kalibr2/|kalibr2_ros)
+        files: ^(aslam_offline_calibration/kalibr2|aslam_offline_calibration/kalibr2_ros)

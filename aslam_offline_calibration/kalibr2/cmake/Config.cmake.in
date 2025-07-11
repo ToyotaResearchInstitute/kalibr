@@ -1,0 +1,14 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(aslam_cameras)
+find_dependency(aslam_cameras_april)
+find_dependency(aslam_time)
+find_dependency(aslam_cv_error_terms)
+find_dependency(OpenCV)
+
+include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@Targets.cmake")
+
+set(@PROJECT_NAME@_LIBRARIES @PROJECT_NAME@::@PROJECT_NAME@)
+
+check_required_components($@PROJECT_NAME@)
