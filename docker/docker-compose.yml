@@ -14,7 +14,7 @@ services:
     volumes:
       - ../:/kalibr
 
-  kalibr_ros:
+  kalibr_ros_no_gpu:
     build:
       context: .
       dockerfile: Dockerfile.ros
@@ -26,17 +26,23 @@ services:
 
     working_dir: /kalibr
 
-    runtime: nvidia
-
     environment:
       - DISPLAY
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/root/.Xauthority
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
-      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
-      - NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:-all}
 
     volumes:
       - ../:/kalibr
       - /tmp/.X11-unix:/tmp/.X11-unix
       - $HOME/.Xauthority:/root/.Xauthority
+
+  kalibr_ros:
+    extends: kalibr_ros_no_gpu
+
+    runtime: nvidia
+
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+      - NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:-all}
+
