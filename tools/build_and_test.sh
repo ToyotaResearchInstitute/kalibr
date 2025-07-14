@@ -32,7 +32,7 @@ packages=(
     "sparse_block_matrix" \
 )
 
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/${ROS_DISTRO}/setup.bash
 
 echo "=== Building packages ==="
 colcon build --packages-select ${packages[@]}
