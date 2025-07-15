@@ -780,20 +780,21 @@ bool PinholeProjection<DISTORTION_T>::initializeIntrinsics(const std::vector<Gri
     }
   }
   if(f_guesses.empty()) {
-    const char* manual_input = std::getenv("KALIBR_MANUAL_FOCAL_LENGTH_INIT");
-    if(manual_input != nullptr) {
-      double input_guess;
-      std::cout << "Initialization of focal length failed. Provide manual initialization: " << std::endl;
-      std::cin >> input_guess;
-      SM_ASSERT_GT(std::runtime_error, input_guess, 0.0, 
-                "Focal length needs to be positive.");
-      std::cout << "Initializing focal length to " << input_guess << std::endl;
-      f_guesses.push_back(input_guess);
-    } else {
-      std::cout << "Initialization of focal length failed. You can enable"
-        << " manual input by setting 'KALIBR_MANUAL_FOCAL_LENGTH_INIT'." << std::endl;
-      return false;
-    }
+    f_guesses.push_back(881.0); // default focal length
+    // const char* manual_input = std::getenv("KALIBR_MANUAL_FOCAL_LENGTH_INIT");
+    // if(manual_input != nullptr) {
+    //   double input_guess;
+    //   std::cout << "Initialization of focal length failed. Provide manual initialization: " << std::endl;
+    //   std::cin >> input_guess;
+    //   SM_ASSERT_GT(std::runtime_error, input_guess, 0.0,
+    //             "Focal length needs to be positive.");
+    //   std::cout << "Initializing focal length to " << input_guess << std::endl;
+    //   f_guesses.push_back(input_guess);
+    // } else {
+    //   std::cout << "Initialization of focal length failed. You can enable"
+    //     << " manual input by setting 'KALIBR_MANUAL_FOCAL_LENGTH_INIT'." << std::endl;
+    //   return false;
+    // }
   }
   // Get the median of the guesses if available.
   double f0 = PinholeHelpers::medianOfVectorElements(f_guesses);
