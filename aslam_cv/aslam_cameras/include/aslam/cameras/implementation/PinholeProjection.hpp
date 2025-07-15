@@ -710,7 +710,7 @@ public:
 /// https://github.com/hengli/camodocal
 //this algorithm can be used with high distortion lenses
 template<typename DISTORTION_T>
-bool PinholeProjection<DISTORTION_T>::initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations) {
+bool PinholeProjection<DISTORTION_T>::initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations, std::optional<double> fallback_focal_length) {
 
   SM_DEFINE_EXCEPTION(Exception, std::runtime_error);
   SM_ASSERT_TRUE(Exception, observations.size() != 0, "Need min. one observation");
@@ -779,22 +779,17 @@ bool PinholeProjection<DISTORTION_T>::initializeIntrinsics(const std::vector<Gri
       }
     }
   }
+
   if(f_guesses.empty()) {
-    f_guesses.push_back(881.0); // default focal length
-    // const char* manual_input = std::getenv("KALIBR_MANUAL_FOCAL_LENGTH_INIT");
-    // if(manual_input != nullptr) {
-    //   double input_guess;
-    //   std::cout << "Initialization of focal length failed. Provide manual initialization: " << std::endl;
-    //   std::cin >> input_guess;
-    //   SM_ASSERT_GT(std::runtime_error, input_guess, 0.0,
-    //             "Focal length needs to be positive.");
-    //   std::cout << "Initializing focal length to " << input_guess << std::endl;
-    //   f_guesses.push_back(input_guess);
-    // } else {
-    //   std::cout << "Initialization of focal length failed. You can enable"
-    //     << " manual input by setting 'KALIBR_MANUAL_FOCAL_LENGTH_INIT'." << std::endl;
-    //   return false;
-    // }
+    if (fallback_focal_length.has_value()) {
+      std::cout << "Initialization of focal length failed. Using fallback focal length: "
+                << fallback_focal_length.value() << std::endl;
+      f_guesses.push_back(fallback_focal_length.value());
+    }
+    else {
+      std::cout << "Initialization of focal length failed. And no fallback focal length provided." << std::endl;
+      return false;
+    }
   }
   // Get the median of the guesses if available.
   double f0 = PinholeHelpers::medianOfVectorElements(f_guesses);

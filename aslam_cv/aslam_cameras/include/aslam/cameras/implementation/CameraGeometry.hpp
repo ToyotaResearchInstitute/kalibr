@@ -489,10 +489,15 @@ namespace aslam {
     }
 
     /// \brief initialize the intrinsics based on list of views of a gridded calibration target
+    template<typename P, typename S, typename M>
+    bool CameraGeometry<P, S, M>::initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations, std::optional<double> fallback_focal_length) {
+      return _projection.initializeIntrinsics(observations, fallback_focal_length);
+    }
+
 
     template<typename P, typename S, typename M>
     bool CameraGeometry<P, S, M>::initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations) {
-      return _projection.initializeIntrinsics(observations);
+      return _projection.initializeIntrinsics(observations, std::nullopt);
     }
 
     /// \brief estimate the transformation of the camera with respect to the calibration target

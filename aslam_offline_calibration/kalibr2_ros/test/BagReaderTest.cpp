@@ -102,7 +102,7 @@ TEST_F(BagReaderTestFixture, DISABLED_CanDetectMultipleImagesSingleTopic) {
   }
 }
 
-TEST(DISABLED_BagReaderTest, Integration) {
+TEST(BagReaderTest, Integration) {
   std::string bag_path =
       std::string(TEST_DATA_DIR) + "/rosbag2_2025_06_11-12_00_21_0.mcap";
   if (!std::filesystem::exists(bag_path)) {
@@ -142,8 +142,9 @@ TEST(DISABLED_BagReaderTest, Integration) {
     }
   }
 
-  bool success =
-      kalibr2::tools::CalibrateInstrinsics(observations, geometry, detector);
+  double focal_lenght = 881.0;
+  bool success = kalibr2::tools::CalibrateInstrinsics(observations, geometry,
+                                                      detector, focal_lenght);
 
   ASSERT_TRUE(success) << "Failed to calibrate intrinsics from observations";
 }

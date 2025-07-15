@@ -116,7 +116,7 @@ class DepthProjection {
 
   /// \brief initialize the intrinsics based on one view of a gridded calibration target
   /// \return true on success
-  bool initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &/*observations*/) {
+  bool initializeIntrinsics([[maybe_unused]] const std::vector<GridCalibrationTargetObservation>& observations, [[maybe_unused]] std::optional<double> fallback_focal_length) {
     SM_THROW(std::runtime_error, "initializeIntrinsics(): not implemented for DepthProjection!");
     return false;
   }

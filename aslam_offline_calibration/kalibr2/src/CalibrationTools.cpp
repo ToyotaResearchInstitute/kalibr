@@ -17,8 +17,10 @@ bool CalibrateInstrinsics(
         observations,
     const boost::shared_ptr<kalibr2::models::DistortedPinhole::Geometry>&
         geometry,
-    const aslam::cameras::GridDetector& detector) {
-  bool success = geometry->initializeIntrinsics(observations);
+    const aslam::cameras::GridDetector& detector,
+    std::optional<double> fallback_focal_length) {
+  bool success =
+      geometry->initializeIntrinsics(observations, fallback_focal_length);
   if (!success) {
     std::cerr << "Failed to initialize intrinsics from observations."
               << std::endl;
@@ -106,6 +108,15 @@ bool CalibrateInstrinsics(
 
   auto retval = optimizer.optimize();
   return !retval.linearSolverFailure;
+}
+
+bool CalibrateInstrinsics(
+    const std::vector<aslam::cameras::GridCalibrationTargetObservation>&
+        observations,
+    const boost::shared_ptr<kalibr2::models::DistortedPinhole::Geometry>&
+        geometry,
+    const aslam::cameras::GridDetector& detector) {
+  return CalibrateInstrinsics(observations, geometry, detector, std::nullopt);
 }
 
 }  // namespace tools
