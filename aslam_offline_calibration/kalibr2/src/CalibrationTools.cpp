@@ -95,7 +95,7 @@ bool CalibrateInstrinsics(
   }
 
   auto options = aslam::backend::Optimizer2Options();
-  options.nThreads = 1;
+  options.nThreads = 4;
   options.convergenceDeltaX = 1e-3;
   options.convergenceDeltaJ = 1;
   options.maxIterations = 200;
