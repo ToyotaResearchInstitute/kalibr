@@ -45,6 +45,7 @@ TEST_F(BagReaderTestFixture, CanReadSingleImageSingleTopic) {
   auto reader =
       kalibr2::ros::BagImageReaderFactory::create(bag_path, topic);
   kalibr2::Image img = reader->ReadNext();
+  ASSERT_FALSE(img.image.empty());
 }
 
 
@@ -55,7 +56,7 @@ TEST_F(BagReaderTestFixture, DISABLED_CanReadMultipleImagesSingleTopic) {
 
   while (reader->HasNext()) {
     kalibr2::Image img = reader->ReadNext();
-    assert(!img.image.empty());
+    ASSERT_FALSE(img.image.empty());
     cv::imshow("Image", img.image);
     cv::waitKey(1);
   }
@@ -71,7 +72,7 @@ TEST_F(BagReaderTestFixture, DISABLED_CanReadMultipleImagesMultipleTopics) {
     auto reader = kalibr2::ros::BagImageReaderFactory::create(bag_path, topic);
     while (reader->HasNext()) {
       kalibr2::Image img = reader->ReadNext();
-      assert(!img.image.empty());
+      ASSERT_FALSE(img.image.empty());
       cv::imshow("Image", img.image);
       cv::waitKey(1);
     }
@@ -93,7 +94,7 @@ TEST_F(BagReaderTestFixture, DISABLED_CanDetectMultipleImagesSingleTopic) {
 
   while (reader->HasNext()) {
     kalibr2::Image img = reader->ReadNext();
-    assert(!img.image.empty());
+    ASSERT_FALSE(img.image.empty());
     cv::imshow("Image", img.image);
     cv::waitKey(1);
 
