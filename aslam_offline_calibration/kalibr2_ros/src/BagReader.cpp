@@ -22,9 +22,39 @@ rosbag2_storage::StorageOptions get_storage_options(
   return storage_options;
 }
 
+/// Transforms a ROS message to an Image.
+template <typename MessageT>
+Image image_from_message(const MessageT& msg) {
+  Image img;
+  img.timestamp = aslam::Time(msg.header.stamp.sec, msg.header.stamp.nanosec);
+  img.image = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO8)
+                  ->image.clone();
+  return img;
+}
+
+/// Image reader for ROS bag files.
+/// This class reads images from a ROS bag file using the specified message
+/// type. Uses sequential reading of the images.
+template <typename MessageT>
+class BagImageReader : public ImageReader {
+ public:
+  BagImageReader(std::unique_ptr<rosbag2_cpp::Reader> reader)
+      : reader_(std::move(reader)) {}
+
+  Image ReadNext() override {
+    auto msg = reader_->read_next<MessageT>();
+    return image_from_message(msg);
+  }
+
+  bool HasNext() const override { return reader_->has_next(); }
+
+ private:
+  std::unique_ptr<rosbag2_cpp::Reader> reader_;
+};
+
 }  // namespace
 
-std::unique_ptr<ImageReader> create_bag_reader(const std::string& bag_file_path,
+std::unique_ptr<ImageReader> BagImageReaderFactory::create(const std::string& bag_file_path,
                                                const std::string& topic) {
   auto bag_metadata = get_bag_metadata(bag_file_path);
   auto storage_options = get_storage_options(bag_file_path, bag_metadata);

@@ -16,7 +16,7 @@ TEST(BagReaderTest, CanInitializeBagReader) {
     GTEST_SKIP() << "Bag file does not exist: " << bag_path;
   }
   auto reader =
-      kalibr2::ros::create_bag_reader(bag_path, "/BFS_25037070/image");
+      kalibr2::ros::BagImageReaderFactory::create(bag_path, "/BFS_25037070/image");
 }
 
 TEST(BagReaderTest, CanReadSingleImageSingleTopic) {
@@ -26,7 +26,7 @@ TEST(BagReaderTest, CanReadSingleImageSingleTopic) {
     GTEST_SKIP() << "Bag file does not exist: " << bag_path;
   }
   auto reader =
-      kalibr2::ros::create_bag_reader(bag_path, "/BFS_25037070/image");
+      kalibr2::ros::BagImageReaderFactory::create(bag_path, "/BFS_25037070/image");
   kalibr2::Image img = reader->ReadNext();
 }
 
@@ -37,7 +37,7 @@ TEST(DISABLED_BagReaderTest, CanReadMultipleImagesSingleTopic) {
     GTEST_SKIP() << "Bag file does not exist: " << bag_path;
   }
   auto reader =
-      kalibr2::ros::create_bag_reader(bag_path, "/BFS_25037070/image");
+      kalibr2::ros::BagImageReaderFactory::create(bag_path, "/BFS_25037070/image");
   cv::namedWindow("Image", cv::WINDOW_AUTOSIZE);
 
   while (reader->HasNext()) {
@@ -52,7 +52,7 @@ TEST(BagReaderTest, InvalidBagFile) {
   std::string invalid_bag_path =
       std::string(TEST_DATA_DIR) + "/invalid_bag.mcap";
   EXPECT_THROW(
-      kalibr2::ros::create_bag_reader(invalid_bag_path, "/BFS_25037070/image"),
+      kalibr2::ros::BagImageReaderFactory::create(invalid_bag_path, "/BFS_25037070/image"),
       std::runtime_error);
 }
 
@@ -62,7 +62,7 @@ TEST(BagReaderTest, InvalidTopic) {
   if (!std::filesystem::exists(bag_path)) {
     GTEST_SKIP() << "Bag file does not exist: " << bag_path;
   }
-  EXPECT_THROW(kalibr2::ros::create_bag_reader(bag_path, "/invalid_topic"),
+  EXPECT_THROW(kalibr2::ros::BagImageReaderFactory::create(bag_path, "/invalid_topic"),
                std::runtime_error);
 }
 
@@ -77,7 +77,7 @@ TEST(DISABLED_BagReaderTest, CanReadMultipleImagesMultipleTopics) {
   cv::namedWindow("Image", cv::WINDOW_AUTOSIZE);
 
   for (const auto& topic : topics) {
-    auto reader = kalibr2::ros::create_bag_reader(bag_path, topic);
+    auto reader = kalibr2::ros::BagImageReaderFactory::create(bag_path, topic);
     while (reader->HasNext()) {
       kalibr2::Image img = reader->ReadNext();
       assert(!img.image.empty());
@@ -94,7 +94,7 @@ TEST(DISABLED_BagReaderTest, CanDetectMultipleImagesSingleTopic) {
     GTEST_SKIP() << "Bag file does not exist: " << bag_path;
   }
   auto reader =
-      kalibr2::ros::create_bag_reader(bag_path, "/BFS_25037070/image");
+      kalibr2::ros::BagImageReaderFactory::create(bag_path, "/BFS_25037070/image");
   cv::namedWindow("Image", cv::WINDOW_AUTOSIZE);
 
   auto target_grid =
