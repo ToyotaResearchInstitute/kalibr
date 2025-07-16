@@ -9,35 +9,48 @@
 
 namespace {
 
-TEST(BagReaderTest, CanInitializeBagReader) {
-  std::string bag_path =
-      std::string(TEST_DATA_DIR) + "/rosbag2_2025_06_11-12_00_21_0.mcap";
-  if (!std::filesystem::exists(bag_path)) {
-    GTEST_SKIP() << "Bag file does not exist: " << bag_path;
-  }
-  auto reader =
-      kalibr2::ros::BagImageReaderFactory::create(bag_path, "/BFS_25037070/image");
+TEST(BagReaderTest, InvalidBagFile) {
+  std::string invalid_bag_path = TEST_DATA_DIR "/invalid_bag.mcap";
+  EXPECT_THROW(
+      kalibr2::ros::BagImageReaderFactory::create(invalid_bag_path, "/BFS_25037070/image"),
+      std::runtime_error);
 }
 
-TEST(BagReaderTest, CanReadSingleImageSingleTopic) {
-  std::string bag_path =
-      std::string(TEST_DATA_DIR) + "/rosbag2_2025_06_11-12_00_21_0.mcap";
-  if (!std::filesystem::exists(bag_path)) {
-    GTEST_SKIP() << "Bag file does not exist: " << bag_path;
-  }
+
+class BagReaderTestFixture : public ::testing::Test {
+  protected:
+    const std::string bag_path = TEST_DATA_DIR "/rosbag2_2025_06_11-12_00_21_0.mcap";
+    const std::string topic = "/BFS_25037070/image";
+    void SetUp() override {
+      if (!std::filesystem::exists(bag_path)) {
+        GTEST_SKIP() << "Bag file does not exist: " << bag_path;
+      }
+    }
+};
+
+
+TEST_F(BagReaderTestFixture, InvalidTopic) {
+  EXPECT_THROW(kalibr2::ros::BagImageReaderFactory::create(bag_path, "/invalid_topic"),
+                std::runtime_error);
+}
+
+
+TEST_F(BagReaderTestFixture, CanInitializeBagReader) {
   auto reader =
-      kalibr2::ros::BagImageReaderFactory::create(bag_path, "/BFS_25037070/image");
+      kalibr2::ros::BagImageReaderFactory::create(bag_path, topic);
+}
+
+
+TEST_F(BagReaderTestFixture, CanReadSingleImageSingleTopic) {
+  auto reader =
+      kalibr2::ros::BagImageReaderFactory::create(bag_path, topic);
   kalibr2::Image img = reader->ReadNext();
 }
 
-TEST(DISABLED_BagReaderTest, CanReadMultipleImagesSingleTopic) {
-  std::string bag_path =
-      std::string(TEST_DATA_DIR) + "/rosbag2_2025_06_11-12_00_21_0.mcap";
-  if (!std::filesystem::exists(bag_path)) {
-    GTEST_SKIP() << "Bag file does not exist: " << bag_path;
-  }
+
+TEST_F(BagReaderTestFixture, DISABLED_CanReadMultipleImagesSingleTopic) {
   auto reader =
-      kalibr2::ros::BagImageReaderFactory::create(bag_path, "/BFS_25037070/image");
+      kalibr2::ros::BagImageReaderFactory::create(bag_path, topic);
   cv::namedWindow("Image", cv::WINDOW_AUTOSIZE);
 
   while (reader->HasNext()) {
@@ -48,32 +61,10 @@ TEST(DISABLED_BagReaderTest, CanReadMultipleImagesSingleTopic) {
   }
 }
 
-TEST(BagReaderTest, InvalidBagFile) {
-  std::string invalid_bag_path =
-      std::string(TEST_DATA_DIR) + "/invalid_bag.mcap";
-  EXPECT_THROW(
-      kalibr2::ros::BagImageReaderFactory::create(invalid_bag_path, "/BFS_25037070/image"),
-      std::runtime_error);
-}
 
-TEST(BagReaderTest, InvalidTopic) {
-  std::string bag_path =
-      std::string(TEST_DATA_DIR) + "/rosbag2_2025_06_11-12_00_21_0.mcap";
-  if (!std::filesystem::exists(bag_path)) {
-    GTEST_SKIP() << "Bag file does not exist: " << bag_path;
-  }
-  EXPECT_THROW(kalibr2::ros::BagImageReaderFactory::create(bag_path, "/invalid_topic"),
-               std::runtime_error);
-}
-
-TEST(DISABLED_BagReaderTest, CanReadMultipleImagesMultipleTopics) {
-  std::string bag_path =
-      std::string(TEST_DATA_DIR) + "/rosbag2_2025_06_11-12_00_21_0.mcap";
-  if (!std::filesystem::exists(bag_path)) {
-    GTEST_SKIP() << "Bag file does not exist: " << bag_path;
-  }
-  std::array<std::string, 2> topics = {"/BFS_25037070/image",
-                                       "/BFS_24293899/image"};
+TEST_F(BagReaderTestFixture, DISABLED_CanReadMultipleImagesMultipleTopics) {
+  const std::string other_topic = "/BFS_24293899/image";
+  std::array<std::string, 2> topics = {topic, other_topic};
   cv::namedWindow("Image", cv::WINDOW_AUTOSIZE);
 
   for (const auto& topic : topics) {
@@ -87,14 +78,10 @@ TEST(DISABLED_BagReaderTest, CanReadMultipleImagesMultipleTopics) {
   }
 }
 
-TEST(DISABLED_BagReaderTest, CanDetectMultipleImagesSingleTopic) {
-  std::string bag_path =
-      std::string(TEST_DATA_DIR) + "/rosbag2_2025_06_11-12_00_21_0.mcap";
-  if (!std::filesystem::exists(bag_path)) {
-    GTEST_SKIP() << "Bag file does not exist: " << bag_path;
-  }
+
+TEST_F(BagReaderTestFixture, DISABLED_CanDetectMultipleImagesSingleTopic) {
   auto reader =
-      kalibr2::ros::BagImageReaderFactory::create(bag_path, "/BFS_25037070/image");
+      kalibr2::ros::BagImageReaderFactory::create(bag_path, topic);
   cv::namedWindow("Image", cv::WINDOW_AUTOSIZE);
 
   auto target_grid =
