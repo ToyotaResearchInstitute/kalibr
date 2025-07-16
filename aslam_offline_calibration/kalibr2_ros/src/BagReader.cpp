@@ -54,8 +54,8 @@ class BagImageReader : public ImageReader {
 
 }  // namespace
 
-std::unique_ptr<ImageReader> BagImageReaderFactory::create(const std::string& bag_file_path,
-                                               const std::string& topic) {
+std::unique_ptr<ImageReader> BagImageReaderFactory::create(
+    const std::string& bag_file_path, const std::string& topic) {
   auto bag_metadata = get_bag_metadata(bag_file_path);
   auto storage_options = get_storage_options(bag_file_path, bag_metadata);
   // Assuming the serialization format is CDR
