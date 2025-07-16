@@ -27,9 +27,6 @@ services:
     working_dir: /kalibr
 
     environment:
-      - DISPLAY
-      - QT_X11_NO_MITSHM=1
-      - XAUTHORITY=/root/.Xauthority
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
 
     volumes:
@@ -43,6 +40,9 @@ services:
     runtime: nvidia
 
     environment:
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - XAUTHORITY=/root/.Xauthority
       - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
       - NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:-all}
 
