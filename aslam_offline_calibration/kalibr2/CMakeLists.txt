@@ -15,7 +15,6 @@ find_package(OpenCV REQUIRED)
 
 add_library(${PROJECT_NAME}
   src/Image.cpp
-  src/CalibrationTools.cpp
 )
 
 target_include_directories(${PROJECT_NAME}

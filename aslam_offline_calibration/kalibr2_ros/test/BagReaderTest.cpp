@@ -102,14 +102,8 @@ TEST_F(BagReaderTestFixture, DISABLED_CanDetectMultipleImagesSingleTopic) {
   }
 }
 
-TEST(BagReaderTest, Integration) {
-  std::string bag_path =
-      std::string(TEST_DATA_DIR) + "/rosbag2_2025_06_11-12_00_21_0.mcap";
-  if (!std::filesystem::exists(bag_path)) {
-    GTEST_SKIP() << "Bag file does not exist: " << bag_path;
-  }
-  auto reader =
-      kalibr2::ros::create_bag_reader(bag_path, "/BFS_25037070/image");
+TEST_F(BagReaderTestFixture, Integration) {
+  auto reader = kalibr2::ros::BagImageReaderFactory::create(bag_path, topic);
 
   auto target_grid =
       boost::make_shared<aslam::cameras::GridCalibrationTargetAprilgrid>(
@@ -118,12 +112,12 @@ TEST(BagReaderTest, Integration) {
       boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
   auto detector = aslam::cameras::GridDetector(geometry, target_grid);
 
-  size_t min_num_observation = 10;
+  constexpr size_t min_num_observation = 10;
   std::vector<aslam::cameras::GridCalibrationTargetObservation> observations;
 
   while (reader->HasNext()) {
     kalibr2::Image img = reader->ReadNext();
-    assert(!img.image.empty());
+    ASSERT_FALSE(img.image.empty());
 
     auto observation = kalibr2::ToObservation(img, detector);
 
@@ -142,9 +136,12 @@ TEST(BagReaderTest, Integration) {
     }
   }
 
-  double focal_lenght = 881.0;
-  bool success = kalibr2::tools::CalibrateInstrinsics(observations, geometry,
-                                                      detector, focal_lenght);
+  double focal_length = 881.0;
+  bool success = kalibr2::tools::CalibrateIntrinsics<
+      kalibr2::models::DistortedPinhole::Geometry,
+      kalibr2::models::DistortedPinhole::DesignVariable,
+      kalibr2::models::DistortedPinhole::ReprojectionError>(
+      observations, geometry, detector, focal_length);
 
   ASSERT_TRUE(success) << "Failed to calibrate intrinsics from observations";
 }
