@@ -835,11 +835,10 @@ bool OmniProjection<DISTORTION_T>::initializeIntrinsics(const std::vector<GridCa
   if (!success) {
     if (fallback_focal_length.has_value()) {
       gamma0 = fallback_focal_length.value();
-      std::cout << "Initialization of focal length failed. Using fallback focal length: "
-                << gamma0 << std::endl;
+      SM_WARN_STREAM("Initialization of focal length failed. Using fallback focal length: " << gamma0);
     }
     else {
-      std::cout << "Initialization of focal length failed. And no fallback focal length provided." << std::endl;
+      SM_ERROR("Initialization of focal length failed. And no fallback focal length provided.");
       return false;
     }
   }

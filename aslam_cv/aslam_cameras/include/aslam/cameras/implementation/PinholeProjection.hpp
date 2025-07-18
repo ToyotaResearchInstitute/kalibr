@@ -782,12 +782,12 @@ bool PinholeProjection<DISTORTION_T>::initializeIntrinsics(const std::vector<Gri
 
   if(f_guesses.empty()) {
     if (fallback_focal_length.has_value()) {
-      std::cout << "Initialization of focal length failed. Using fallback focal length: "
-                << fallback_focal_length.value() << std::endl;
+      SM_WARN_STREAM("Initialization of focal length failed. Using fallback focal length: "
+               << fallback_focal_length.value());
       f_guesses.push_back(fallback_focal_length.value());
     }
     else {
-      std::cout << "Initialization of focal length failed. And no fallback focal length provided." << std::endl;
+      SM_ERROR("Initialization of focal length failed. And no fallback focal length provided.");
       return false;
     }
   }

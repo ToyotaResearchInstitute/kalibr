@@ -9,6 +9,8 @@ BasedOnStyle:  Google
 
 Language: Cpp
 
+ColumnLimit: 120
+
 # Force pointers to the type for C++.
 DerivePointerAlignment: false
 PointerAlignment: Left

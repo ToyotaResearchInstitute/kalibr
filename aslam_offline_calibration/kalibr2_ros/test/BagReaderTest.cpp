@@ -12,15 +12,13 @@ namespace {
 
 TEST(BagReaderTest, InvalidBagFile) {
   std::string invalid_bag_path = TEST_DATA_DIR "/invalid_bag.mcap";
-  EXPECT_THROW(kalibr2::ros::BagImageReaderFactory::create(
-                   invalid_bag_path, "/BFS_25037070/image"),
+  EXPECT_THROW(kalibr2::ros::BagImageReaderFactory::create(invalid_bag_path, "/BFS_25037070/image"),
                std::runtime_error);
 }
 
 class BagReaderTestFixture : public ::testing::Test {
  protected:
-  const std::string bag_path =
-      TEST_DATA_DIR "/rosbag2_2025_06_11-12_00_21_0.mcap";
+  const std::string bag_path = TEST_DATA_DIR "/rosbag2_2025_06_11-12_00_21_0.mcap";
   const std::string topic = "/BFS_25037070/image";
   void SetUp() override {
     if (!std::filesystem::exists(bag_path)) {
@@ -30,9 +28,7 @@ class BagReaderTestFixture : public ::testing::Test {
 };
 
 TEST_F(BagReaderTestFixture, InvalidTopic) {
-  EXPECT_THROW(
-      kalibr2::ros::BagImageReaderFactory::create(bag_path, "/invalid_topic"),
-      std::runtime_error);
+  EXPECT_THROW(kalibr2::ros::BagImageReaderFactory::create(bag_path, "/invalid_topic"), std::runtime_error);
 }
 
 TEST_F(BagReaderTestFixture, CanInitializeBagReader) {
@@ -77,11 +73,13 @@ TEST_F(BagReaderTestFixture, DISABLED_CanDetectMultipleImagesSingleTopic) {
   auto reader = kalibr2::ros::BagImageReaderFactory::create(bag_path, topic);
   cv::namedWindow("Image", cv::WINDOW_AUTOSIZE);
 
+  constexpr int rows = 5;
+  constexpr int cols = 6;
+  constexpr double tag_size = 0.088;
+  constexpr double tag_spacing = 0.2954;
   auto target_grid =
-      boost::make_shared<aslam::cameras::GridCalibrationTargetAprilgrid>(
-          5, 6, 0.088, 0.2954);
-  auto geometry =
-      boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
+      boost::make_shared<aslam::cameras::GridCalibrationTargetAprilgrid>(rows, cols, tag_size, tag_spacing);
+  auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
   auto detector = aslam::cameras::GridDetector(geometry, target_grid);
 
   while (reader->HasNext()) {
@@ -93,11 +91,9 @@ TEST_F(BagReaderTestFixture, DISABLED_CanDetectMultipleImagesSingleTopic) {
     auto observation = kalibr2::ToObservation(img, detector);
 
     if (observation.has_value()) {
-      std::cout << "Found target in image with timestamp: "
-                << img.timestamp.toNSec() << std::endl;
+      std::cout << "Found target in image with timestamp: " << img.timestamp.toNSec() << std::endl;
     } else {
-      std::cout << "No target found in image with timestamp: "
-                << img.timestamp.toNSec() << std::endl;
+      std::cout << "No target found in image with timestamp: " << img.timestamp.toNSec() << std::endl;
     }
   }
 }
@@ -105,11 +101,13 @@ TEST_F(BagReaderTestFixture, DISABLED_CanDetectMultipleImagesSingleTopic) {
 TEST_F(BagReaderTestFixture, Integration) {
   auto reader = kalibr2::ros::BagImageReaderFactory::create(bag_path, topic);
 
+  constexpr int rows = 5;
+  constexpr int cols = 6;
+  constexpr double tag_size = 0.088;
+  constexpr double tag_spacing = 0.2954;
   auto target_grid =
-      boost::make_shared<aslam::cameras::GridCalibrationTargetAprilgrid>(
-          5, 6, 0.088, 0.2954);
-  auto geometry =
-      boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
+      boost::make_shared<aslam::cameras::GridCalibrationTargetAprilgrid>(rows, cols, tag_size, tag_spacing);
+  auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
   auto detector = aslam::cameras::GridDetector(geometry, target_grid);
 
   constexpr size_t min_num_observation = 10;
@@ -123,24 +121,20 @@ TEST_F(BagReaderTestFixture, Integration) {
 
     if (observation.has_value()) {
       observations.push_back(observation.value());
-      std::cout << "Found target in image with timestamp: "
-                << img.timestamp.toNSec() << std::endl;
+      std::cout << "Found target in image with timestamp: " << img.timestamp.toNSec() << std::endl;
       if (observations.size() >= min_num_observation) {
-        std::cout << "Enough observations collected: " << observations.size()
-                  << std::endl;
+        std::cout << "Enough observations collected: " << observations.size() << std::endl;
         break;  // Stop after collecting enough observations
       }
     } else {
-      std::cout << "No target found in image with timestamp: "
-                << img.timestamp.toNSec() << std::endl;
+      std::cout << "No target found in image with timestamp: " << img.timestamp.toNSec() << std::endl;
     }
   }
 
   double focal_length = 881.0;
-  bool success = kalibr2::tools::CalibrateIntrinsics<
-      kalibr2::models::DistortedPinhole::Geometry,
-      kalibr2::models::DistortedPinhole::DesignVariable,
-      kalibr2::models::DistortedPinhole::ReprojectionError>(
+  bool success = kalibr2::tools::CalibrateIntrinsics<kalibr2::models::DistortedPinhole::Geometry,
+                                                     kalibr2::models::DistortedPinhole::DesignVariable,
+                                                     kalibr2::models::DistortedPinhole::ReprojectionError>(
       observations, geometry, detector, focal_length);
 
   ASSERT_TRUE(success) << "Failed to calibrate intrinsics from observations";
