@@ -132,10 +132,8 @@ TEST_F(BagReaderTestFixture, Integration) {
   }
 
   double focal_length = 881.0;
-  bool success = kalibr2::tools::CalibrateIntrinsics<kalibr2::models::DistortedPinhole::Geometry,
-                                                     kalibr2::models::DistortedPinhole::DesignVariable,
-                                                     kalibr2::models::DistortedPinhole::ReprojectionError>(
-      observations, geometry, detector, focal_length);
+  bool success = kalibr2::tools::CalibrateIntrinsics<kalibr2::models::DistortedPinhole>(observations, geometry,
+                                                                                        detector, focal_length);
 
   ASSERT_TRUE(success) << "Failed to calibrate intrinsics from observations";
 }

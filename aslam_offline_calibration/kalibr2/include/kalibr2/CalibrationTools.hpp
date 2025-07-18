@@ -17,9 +17,9 @@ namespace kalibr2 {
 
 namespace tools {
 
-template <typename CameraGeometryT, typename DesignVariableT, typename ReprojectionErrorT>
+template <typename CameraT>
 bool CalibrateIntrinsics(const std::vector<aslam::cameras::GridCalibrationTargetObservation>& observations,
-                         const boost::shared_ptr<CameraGeometryT>& geometry,
+                         const boost::shared_ptr<typename CameraT::Geometry>& geometry,
                          const aslam::cameras::GridDetector& detector, std::optional<double> fallback_focal_length) {
   // Get an initial guess for the camera focal lenght, if it fails
   // To initialize it from the observations it will fallback to the
@@ -33,7 +33,7 @@ bool CalibrateIntrinsics(const std::vector<aslam::cameras::GridCalibrationTarget
   // Deactivated variables are added to the problem object but
   // aren't taken into consideration for optimization.
   auto problem = boost::make_shared<aslam::calibration::OptimizationProblem>();
-  auto design_variable = DesignVariableT(geometry);
+  auto design_variable = typename CameraT::DesignVariable(geometry);
   design_variable.setActive(true, true, false);
   problem->addDesignVariable(design_variable.projectionDesignVariable());
   problem->addDesignVariable(design_variable.distortionDesignVariable());
@@ -84,7 +84,8 @@ bool CalibrateIntrinsics(const std::vector<aslam::cameras::GridCalibrationTarget
       Eigen::Vector2d y;
       bool valid = obs.imagePoint(i, y);
       if (valid) {
-        auto rerr = boost::make_shared<ReprojectionErrorT>(y, invR, T_cam_w * p_target, design_variable);
+        auto rerr =
+            boost::make_shared<typename CameraT::ReprojectionError>(y, invR, T_cam_w * p_target, design_variable);
         problem->addErrorTerm(rerr);
       }
     }
@@ -107,12 +108,11 @@ bool CalibrateIntrinsics(const std::vector<aslam::cameras::GridCalibrationTarget
   return !retval.linearSolverFailure;
 }
 
-template <typename CameraGeometryT, typename DesignVariableT, typename ReprojectionErrorT>
+template <typename CameraT>
 bool CalibrateIntrinsics(const std::vector<aslam::cameras::GridCalibrationTargetObservation>& observations,
-                         const boost::shared_ptr<CameraGeometryT>& geometry,
+                         const boost::shared_ptr<typename CameraT::Geometry>& geometry,
                          const aslam::cameras::GridDetector& detector) {
-  return CalibrateIntrinsics<CameraGeometryT, DesignVariableT, ReprojectionErrorT>(observations, geometry, detector,
-                                                                                   std::nullopt);
+  return CalibrateIntrinsics<CameraT>(observations, geometry, detector, std::nullopt);
 }
 
 }  // namespace tools
