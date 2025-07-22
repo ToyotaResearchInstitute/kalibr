@@ -19,6 +19,7 @@ packages=(
     "ethz_apriltag2" \
     "incremental_calibration" \
     "kalibr2" \
+    "kalibr2_ros" \
     "sm_boost" \
     "sm_common" \
     "sm_eigen" \
@@ -30,6 +31,8 @@ packages=(
     "sm_timing" \
     "sparse_block_matrix" \
 )
+
+source /opt/ros/${ROS_DISTRO}/setup.bash
 
 echo "=== Building packages ==="
 colcon build --packages-select ${packages[@]}

@@ -40,5 +40,5 @@ jobs:
 
       - name: Build And Test Packages
         run: |
-          docker compose run --rm kalibr ./tools/build_and_test.sh
+          docker compose run --rm kalibr_ros_no_gpu ./tools/build_and_test.sh
         working-directory: ./docker
