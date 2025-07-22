@@ -22,7 +22,7 @@ bool CalibrateIntrinsics(const std::vector<aslam::cameras::GridCalibrationTarget
                          const boost::shared_ptr<typename CameraT::Geometry>& geometry,
                          const aslam::cameras::GridDetector& detector, std::optional<double> fallback_focal_length) {
   // Get an initial guess for the camera focal lenght, if it fails
-  // To initialize it from the observations it will fallback to the
+  // to initialize it from the observations it will fallback to the
   // fallback_focal_length argument
   bool success = geometry->initializeIntrinsics(observations, fallback_focal_length);
 
@@ -40,7 +40,7 @@ bool CalibrateIntrinsics(const std::vector<aslam::cameras::GridCalibrationTarget
   problem->addDesignVariable(design_variable.shutterDesignVariable());
 
   // Corner uncertainty
-  double corner_uncertainty = 1.0;
+  constexpr double corner_uncertainty = 1.0;
   Eigen::Matrix2d R = Eigen::Matrix2d::Identity() * corner_uncertainty * corner_uncertainty;
   Eigen::Matrix2d invR = R.inverse();
 
@@ -74,9 +74,9 @@ bool CalibrateIntrinsics(const std::vector<aslam::cameras::GridCalibrationTarget
 
     auto T_cam_w = target_pose_dv->toExpression().inverse();
 
-    // Add error terms for each point in the target.
-    // To optimize taking into account all visible corners
-    // In each observation
+    // Add error terms for each point in the target
+    // taking into account all visible corners
+    // in each observation for optimization.
     for (size_t i = 0; i < target->size(); ++i) {
       // Solve the p2p problem and build the reprojection error.
       // Adding the later as error term to the problem.

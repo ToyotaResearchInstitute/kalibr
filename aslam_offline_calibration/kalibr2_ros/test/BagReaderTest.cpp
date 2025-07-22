@@ -131,7 +131,7 @@ TEST_F(BagReaderTestFixture, Integration) {
     }
   }
 
-  double focal_length = 881.0;
+  constexpr double focal_length = 881.0;
   bool success = kalibr2::tools::CalibrateIntrinsics<kalibr2::models::DistortedPinhole>(observations, geometry,
                                                                                         detector, focal_length);
 
