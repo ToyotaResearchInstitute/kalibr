@@ -26,8 +26,7 @@ struct Omni {
   using Geometry = aslam::cameras::OmniCameraGeometry;
   using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
   using Frame = aslam::Frame<Geometry>;
-  using ReprojectionErrorSimple =
-      aslam::backend::SimpleReprojectionError<Frame>;
+  using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
   using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
   using Distortion = aslam::cameras::NoDistortion;
   using Shutter = aslam::cameras::GlobalShutter;
@@ -38,8 +37,7 @@ struct DistortedOmni {
   using Geometry = aslam::cameras::DistortedOmniCameraGeometry;
   using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
   using Frame = aslam::Frame<Geometry>;
-  using ReprojectionErrorSimple =
-      aslam::backend::SimpleReprojectionError<Frame>;
+  using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
   using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
   using Distortion = aslam::cameras::RadialTangentialDistortion;
   using Shutter = aslam::cameras::GlobalShutter;
@@ -50,8 +48,7 @@ struct DistortedOmniRs {
   using Geometry = aslam::cameras::DistortedOmniRsCameraGeometry;
   using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
   using Frame = aslam::Frame<Geometry>;
-  using ReprojectionErrorSimple =
-      aslam::backend::SimpleReprojectionError<Frame>;
+  using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
   using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
   using Distortion = aslam::cameras::RadialTangentialDistortion;
   using Shutter = aslam::cameras::RollingShutter;
@@ -62,8 +59,7 @@ struct DistortedPinhole {
   using Geometry = aslam::cameras::DistortedPinholeCameraGeometry;
   using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
   using Frame = aslam::Frame<Geometry>;
-  using ReprojectionErrorSimple =
-      aslam::backend::SimpleReprojectionError<Frame>;
+  using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
   using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
   using Distortion = aslam::cameras::RadialTangentialDistortion;
   using Shutter = aslam::cameras::GlobalShutter;
@@ -74,8 +70,7 @@ struct DistortedPinholeRs {
   using Geometry = aslam::cameras::DistortedPinholeRsCameraGeometry;
   using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
   using Frame = aslam::Frame<Geometry>;
-  using ReprojectionErrorSimple =
-      aslam::backend::SimpleReprojectionError<Frame>;
+  using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
   using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
   using Distortion = aslam::cameras::RadialTangentialDistortion;
   using Shutter = aslam::cameras::RollingShutter;
@@ -86,8 +81,7 @@ struct EquidistantPinhole {
   using Geometry = aslam::cameras::EquidistantDistortedPinholeCameraGeometry;
   using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
   using Frame = aslam::Frame<Geometry>;
-  using ReprojectionErrorSimple =
-      aslam::backend::SimpleReprojectionError<Frame>;
+  using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
   using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
   using Distortion = aslam::cameras::EquidistantDistortion;
   using Shutter = aslam::cameras::GlobalShutter;
@@ -98,8 +92,7 @@ struct EquidistantPinholeRs {
   using Geometry = aslam::cameras::EquidistantDistortedPinholeRsCameraGeometry;
   using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
   using Frame = aslam::Frame<Geometry>;
-  using ReprojectionErrorSimple =
-      aslam::backend::SimpleReprojectionError<Frame>;
+  using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
   using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
   using Distortion = aslam::cameras::EquidistantDistortion;
   using Shutter = aslam::cameras::RollingShutter;
@@ -110,8 +103,7 @@ struct FovPinhole {
   using Geometry = aslam::cameras::FovDistortedPinholeCameraGeometry;
   using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
   using Frame = aslam::Frame<Geometry>;
-  using ReprojectionErrorSimple =
-      aslam::backend::SimpleReprojectionError<Frame>;
+  using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
   using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
   using Distortion = aslam::cameras::FovDistortion;
   using Shutter = aslam::cameras::GlobalShutter;
@@ -122,8 +114,7 @@ struct ExtendedUnified {
   using Geometry = aslam::cameras::ExtendedUnifiedCameraGeometry;
   using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
   using Frame = aslam::Frame<Geometry>;
-  using ReprojectionErrorSimple =
-      aslam::backend::SimpleReprojectionError<Frame>;
+  using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
   using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
   using Distortion = aslam::cameras::NoDistortion;
   using Shutter = aslam::cameras::GlobalShutter;
@@ -134,8 +125,7 @@ struct DoubleSphere {
   using Geometry = aslam::cameras::DoubleSphereCameraGeometry;
   using ReprojectionError = aslam::backend::ReprojectionError<Geometry>;
   using Frame = aslam::Frame<Geometry>;
-  using ReprojectionErrorSimple =
-      aslam::backend::SimpleReprojectionError<Frame>;
+  using ReprojectionErrorSimple = aslam::backend::SimpleReprojectionError<Frame>;
   using DesignVariable = aslam::backend::CameraDesignVariable<Geometry>;
   using Distortion = aslam::cameras::NoDistortion;
   using Shutter = aslam::cameras::GlobalShutter;
