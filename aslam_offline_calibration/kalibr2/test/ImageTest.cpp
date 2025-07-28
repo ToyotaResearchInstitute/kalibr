@@ -16,11 +16,8 @@ TEST(ImageTest, ToObservationNoTarget) {
   img.timestamp = aslam::Time(1622547800, 0);
   img.image = cv::Mat::zeros(480, 640, CV_8UC3);
 
-  auto target_grid =
-      boost::make_shared<aslam::cameras::GridCalibrationTargetCirclegrid>(5, 7,
-                                                                          0.01);
-  auto geometry =
-      boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
+  auto target_grid = boost::make_shared<aslam::cameras::GridCalibrationTargetCirclegrid>(5, 7, 0.01);
+  auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
   auto detector = aslam::cameras::GridDetector(geometry, target_grid);
 
   auto observation = kalibr2::ToObservation(img, detector);
@@ -34,11 +31,8 @@ TEST(ImageTest, ToObservationCircleGridTarget) {
   img.image = cv::imread("data/testImageCircleGrid.jpg", cv::IMREAD_GRAYSCALE);
   ASSERT_FALSE(img.image.empty());
 
-  auto target_grid =
-      boost::make_shared<aslam::cameras::GridCalibrationTargetCirclegrid>(5, 7,
-                                                                          0.01);
-  auto geometry =
-      boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
+  auto target_grid = boost::make_shared<aslam::cameras::GridCalibrationTargetCirclegrid>(5, 7, 0.01);
+  auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
   auto detector = aslam::cameras::GridDetector(geometry, target_grid);
 
   auto observation = kalibr2::ToObservation(img, detector);

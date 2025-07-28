@@ -127,7 +127,7 @@ class ExtendedUnifiedProjection {
 
   /// \brief initialize the intrinsics based on one view of a gridded calibration target
   /// \return true on success
-  bool initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations);
+  bool initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations, std::optional<double> fallback_focal_length = std::nullopt);
 
   /// \brief estimate the transformation of the camera with respect to the calibration target
   ///        On success out_T_t_c is filled in with the transformation that takes points from

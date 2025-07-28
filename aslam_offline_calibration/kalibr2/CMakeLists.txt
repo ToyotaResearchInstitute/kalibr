@@ -10,6 +10,7 @@ find_package(aslam_cameras REQUIRED)
 find_package(aslam_cameras_april REQUIRED)
 find_package(aslam_time REQUIRED)
 find_package(aslam_cv_error_terms REQUIRED)
+find_package(incremental_calibration REQUIRED)
 find_package(OpenCV REQUIRED)
 
 add_library(${PROJECT_NAME}
@@ -29,6 +30,7 @@ target_link_libraries(${PROJECT_NAME}
   aslam_cameras_april::aslam_cameras_april
   aslam_time::aslam_time
   aslam_cv_error_terms::aslam_cv_error_terms
+  incremental_calibration::incremental_calibration
   ${OpenCV_LIBS}
 )
 

@@ -187,10 +187,10 @@ bool ExtendedUnifiedProjection<DISTORTION_T>::euclideanToKeypoint(
 
   J(0, 0) = _fu * (add - x * x * _alpha * _beta) * denom;
   J(1, 0) = _fv * mid;
-  
+
   J(0, 1) = _fu * mid;
   J(1, 1) = _fv * (add - y * y * _alpha * _beta) * denom;
-  
+
   J(0, 2) = -_fu * x * addz * denom;
   J(1, 2) = -_fv * y * addz * denom;
 
@@ -334,7 +334,7 @@ bool ExtendedUnifiedProjection<DISTORTION_T>::keypointToEuclidean(
   Eigen::MatrixBase<DERIVED_JK> & mbJk =
       const_cast<Eigen::MatrixBase<DERIVED_JK> &>(outJk);
   DERIVED_JK & Jk = mbJk.derived();
-  
+
   Jk(0, 0) = (norm_inv + 2 * mx * mx * d_norm_inv_d_r2) * _recip_fu;
   Jk(1, 0) = (2 * my * mx * d_norm_inv_d_r2) * _recip_fu;
   Jk(2, 0) = 2 * mx * (k * d_norm_inv_d_r2 + d_k_d_r2 * norm_inv) * _recip_fu;
@@ -731,14 +731,14 @@ void ExtendedUnifiedProjection<DISTORTION_T>::resizeIntrinsics(double scale) {
 /// \brief initialize the intrinsics based on one view of a gridded calibration target
 /// \return true on success
 template<typename DISTORTION_T>
-bool ExtendedUnifiedProjection<DISTORTION_T>::initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations) {
+bool ExtendedUnifiedProjection<DISTORTION_T>::initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations, std::optional<double> fallback_focal_length) {
 
   SM_DEFINE_EXCEPTION(Exception, std::runtime_error);
   SM_ASSERT_TRUE(Exception, observations.size() != 0, "Need min. one observation");
 
   // use the implementation in OmniProjection
   OmniProjection<DISTORTION_T> omni(1, _fu, _fv, _cu, _cv, _ru, _rv);
-  bool success = omni.initializeIntrinsics(observations);
+  bool success = omni.initializeIntrinsics(observations, fallback_focal_length);
 
   if(success) {
     // xi is initialized to 1 in OmniProjection --> alpha should be 0.5

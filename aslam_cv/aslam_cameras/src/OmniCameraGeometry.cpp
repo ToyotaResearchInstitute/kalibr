@@ -72,7 +72,7 @@ OmniCameraGeometry OmniCameraGeometry::createTestGeometry() {
                             5.106649931478771e+02, 1224, 1024);
 }
 
-/** 
+/**
  * \brief Lifts a point from the image plane to the unit sphere
  *
  * \param u u image coordinate
@@ -116,7 +116,7 @@ void OmniCameraGeometry::lift_sphere(double u, double v, double *X, double *Y,
   *Z = lambda - _xi;
 }
 
-/** 
+/**
  * \brief Lifts a point from the image plane to its projective ray
  *
  * \param u u image coordinate
@@ -164,7 +164,7 @@ void OmniCameraGeometry::lift_projective(double u, double v, double *X,
   //std::cout << "lift projective: p: " << *X << ", " << *Y << ", " << *Z << std::endl;
 }
 
-/** 
+/**
  * \brief Project a 3D points (\a x,\a y,\a z) to the image plane in (\a u,\a v)
  *
  * \param x 3D point x coordinate
@@ -194,7 +194,7 @@ void OmniCameraGeometry::space2plane(double x, double y, double z, double *u,
   *v = _gamma2 * my_d + _v0;
 }
 
-/** 
+/**
  * \brief Project a 3D points (\a x,\a y,\a z) to the image plane in (\a u,\a v)
  *        and calculate jacobian
  *
@@ -254,7 +254,7 @@ void OmniCameraGeometry::space2plane(double x, double y, double z, double *u,
   *v = _gamma2 * my_d + _v0;
 }
 
-/** 
+/**
  * \brief Projects an undistorted 2D point (\a mx_u,\a my_u) to the image plane in (\a u,\a v)
  *
  * \param mx_u 2D point x coordinate
@@ -278,9 +278,9 @@ void OmniCameraGeometry::undist2plane(double mx_u, double my_u, double *u,
   *v = _gamma2 * my_d + _v0;
 }
 
-/** 
+/**
  * \brief Apply distortion to input point (from the normalised plane)
- *  
+ *
  * \param mx_u undistorted x coordinate of point on the normalised plane
  * \param my_u undistorted y coordinate of point on the normalised plane
  * \param dx return value, to obtain the distorted point : mx_d = mx_u+dx_u
@@ -299,7 +299,7 @@ void OmniCameraGeometry::distortion(double mx_u, double my_u, double *dx_u,
   *dy_u = my_u * rad_dist_u + 2 * _p2 * mxy_u + _p1 * (rho2_u + 2 * my2_u);
 }
 
-/** 
+/**
  * \brief Apply distortion to input point (from the normalised plane)
  *        and calculate jacobian
  *
@@ -448,7 +448,7 @@ void OmniCameraGeometry::undistortGN(double u_d, double v_d, double * u,
   double hat_u_d;
   double hat_v_d;
 
-  // void OmniCameraGeometry::distortion(double mx_u, double my_u, 
+  // void OmniCameraGeometry::distortion(double mx_u, double my_u,
   // 					  double *dx_u, double *dy_u,
   // 					  double *dxdmx, double *dydmx,
   // 					  double *dxdmy, double *dydmy) const
@@ -470,151 +470,7 @@ void OmniCameraGeometry::undistortGN(double u_d, double v_d, double * u,
   *v = vbar;
 }
 
-/// \brief initialize the intrinsics based on one view of a gridded calibration target
-/// \return true on success
-///
-/// These functions were developed with the help of Lionel Heng and the excellent camodocal
-/// https://github.com/hengli/camodocal
-bool OmniProjection::initializeIntrinsics(
-    const GridCalibrationTargetObservation & obs) {
-  if (!obs.target()) {
-    return false;
-  }
 
-  double square(double x) {return x*x;}
-  float square(float x) {return x*x;}
-  double hypot(double a, double b) {return sqrt( square(a) + square(b) );}
-
-  // First, initialize the image center at the center of the image.
-  _xi = 1.0;
-  _cu = obs.imCols() / 2.0;
-  _cv = obs.imRows() / 2.0;
-  _ru = obs.imCols();
-  _rv = obs.imRows();
-
-  _distortion.clear();
-
-  // Grab a reference to the target for easy access.
-  const GridCalibrationTarget & target = *obs.target();
-
-  /// Initialize some temporaries needed.
-  double gamma0 = 0.0;
-  double minReprojErr = std::numeric_limits<double>::max();
-
-  // Now we try to find a non-radial line to initialize the focal length
-  bool success = false;
-  for (size_t r = 0; r < target.rows(); ++r) {
-    // Grab all the valid corner points for this checkerboard observation
-    cv::Mat
-    P(target.cols(); 4, CV_64F
-        );
-        size_t count = 0;
-        for (size_t c = 0; c < target.cols(); ++c) {
-          Eigen::Vector2d imagePoint;
-          Eigen::Vector3d gridPoint;
-          if (obs.imageGridPoint(r, c, imagePoint)) {
-            double u = imagePoint[0] - _cu;
-            double v = imagePoint[1] - _cv;
-            P.at<double>(count, 0) = u;
-            P.at<double>(count, 1) = v;
-            P.at<double>(count, 2) = 0.5;
-            P.at<double>(count, 3) = -0.5 * (square(u) + square(v));
-            ++count;
-          }
-        }
-
-        const int MIN_CORNERS = 8;
-        // MIN_CORNERS is an arbitrary threshold for the number of corners
-        if (count > MIN_CORNERS) {
-          // Resize P to fit with the count of valid points.
-          cv::Mat C;
-          cv::SVD::solveZ(P.colRange(0, count), C);
-
-          double t = square(C.at<double>(0)) + square(C.at<double>(1))
-              + C.at<double>(2) * C.at<double>(3);
-          if (t < 0) {
-            continue;
-          }
-
-          // check that line image is not radial
-          double d = sqrt(1.0 / t);
-          double nx = C.at<double>(0) * d;
-          double ny = C.at<double>(1) * d;
-          if (hypot(nx, ny) > 0.95) {
-            continue;
-          }
-
-          double nz = sqrt(1.0 - square(nx) - square(ny));
-          double gamma = fabs(C.at<double>(2) * d / nz);
-
-          _fu = gamma;
-          _fv = gamma;
-          sm::kinematics::Transformation T_target_camera;
-          if (!estimateTransformation(obs, T_target_camera)) {
-            continue;
-          }
-
-          double reprojErr = 0.0;
-          size_t numReprojected = computeReprojectionError(obs, T_target_camera,
-                                                           reprojErr);
-
-          if (numReprojected > MIN_CORNERS) {
-            double avgReprojErr = reprojErr / numReprojected;
-
-            if (avgReprojErr < minReprojErr) {
-              minReprojErr = avgReprojErr;
-              gamma0 = gamma;
-              success = true;
-            }
-          }
-
-        }  // If this observation has enough valid corners
-      }  // For each row in the image.
-
-      _fu = gamma0;
-      _fv = gamma0;
-
-      return success;
-
-    }  // initializeIntrinsics()
-
-    bool OmniProjection::computeReprojectionError(
-        const GridCalibrationTargetObservation & obs,
-        const sm::kinematics::Transformation & T_target_camera,
-        double & outErr) const {
-      outErr = 0.0;
-      size_t count = 0;
-      sm::kinematics::Transformation T_camera_target =
-          T_target_camera.inverse();
-
-      for (size_t i = 0; i < obs.size(); ++i) {
-        Eigen::Vector2d y, yhat;
-        if (obs.imagePoint(i, y)
-            && euclideanToKeypoint(T_camera_target * obs.target()->point(i),
-                                   yhat)) {
-          outErr += (y - yhat).norm();
-          ++count;
-        }
-      }
-
-      return count;
-
-    }
-
-    /// \brief estimate the transformation of the camera with respect to the calibration target
-    ///        On success out_T_t_c is filled in with the transformation that takes points from
-    ///        the camera frame to the target frame
-    /// \return true on success
-    ///
-    /// These functions were developed with the help of Lionel Heng and the excellent camodocal
-    /// https://github.com/hengli/camodocal
-    bool OmniProjection::estimateTransformation(
-        const GridCalibrationTargetObservation & obs,
-        sm::kinematics::Transformation & out_T_t_c) const {
-      // Convert all chessboard corners to a fakey pinhole view.
-      // Call the OpenCV pnp function.
-    }
-
-    }  // namespace cameras  
+    }  // namespace cameras
 
     }  // namespace aslam
