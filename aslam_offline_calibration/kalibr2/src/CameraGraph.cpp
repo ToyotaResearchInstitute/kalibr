@@ -2,6 +2,10 @@
 
 #include <kalibr2/CameraGraph.hpp>
 
+namespace kalibr2 {
+
+namespace detail {
+
 Corners ToCornersIdxs(std::optional<GridCalibrationTargetObservation> observation) {
   Corners corner_idxs;
   if (observation.has_value()) {
@@ -72,6 +76,8 @@ std::map<std::pair<size_t, size_t>, size_t> ComputeTotalCommonCorners(const std:
   return common_corners_size_accumulated_map;
 }
 
+}  // namespace detail
+
 std::unique_ptr<Graph<size_t>> BuildCameraGraph(const std::vector<SyncedSet> synced_sets) {
   // Add the nodes being the cameras to the graph
   auto graph = std::make_unique<Graph<size_t>>();
@@ -82,7 +88,7 @@ std::unique_ptr<Graph<size_t>> BuildCameraGraph(const std::vector<SyncedSet> syn
   }
 
   // Add edges between nodes based on the common corners size map
-  auto common_corners_size_accumulated_map = ComputeTotalCommonCorners(synced_sets);
+  auto common_corners_size_accumulated_map = detail::ComputeTotalCommonCorners(synced_sets);
   for (const auto& pair : common_corners_size_accumulated_map) {
     if (pair.second > 0) {
       // Abussing that idx is equal to node value.
@@ -92,3 +98,5 @@ std::unique_ptr<Graph<size_t>> BuildCameraGraph(const std::vector<SyncedSet> syn
 
   return graph;
 }
+
+}  // namespace kalibr2

@@ -8,6 +8,8 @@
 #include <aslam/Time.hpp>
 #include <aslam/cameras/GridCalibrationTargetObservation.hpp>
 
+namespace kalibr2 {
+
 using aslam::cameras::GridCalibrationTargetObservation;
 
 class SyncedObservationView {
@@ -64,3 +66,5 @@ class SyncedObservationView {
   // timestamp difference must be within [-tolerance, +tolerance].
   aslam::Duration tolerance_;
 };
+
+}  // namespace kalibr2

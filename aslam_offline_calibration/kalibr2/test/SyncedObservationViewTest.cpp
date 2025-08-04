@@ -33,7 +33,7 @@ TEST(SyncedObservationViewTest, AllWithinTolerance) {
 
   size_t round = 0;
   aslam::Duration tolerance(0.07);
-  for (const auto& sync_set : SyncedObservationView(observations_by_source, tolerance)) {
+  for (const auto& sync_set : kalibr2::SyncedObservationView(observations_by_source, tolerance)) {
     std::cout << "\n--- Round " << ++round << " ---" << std::endl;
     ASSERT_TRUE(std::all_of(sync_set.begin(), sync_set.end(),
                             [](const std::optional<aslam::cameras::GridCalibrationTargetObservation>& obs) {
@@ -77,7 +77,7 @@ TEST(SyncedObservationViewTest, TwoObservationsPerSyncedView) {
 
   size_t round = 0;
   aslam::Duration tolerance(0.04);
-  for (const auto& sync_set : SyncedObservationView(observations_by_source, tolerance)) {
+  for (const auto& sync_set : kalibr2::SyncedObservationView(observations_by_source, tolerance)) {
     ++round;
     // At least two sources should have observations in each sync set
     int count = 0;

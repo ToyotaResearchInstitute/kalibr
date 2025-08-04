@@ -10,6 +10,10 @@
 
 namespace {
 
+using aslam::cameras::GridCalibrationTargetObservation;
+using kalibr2::SyncedSet;
+using kalibr2::SyncedSetCorners;
+
 TEST(CameraGraphTest, DetailToCornersIdxs) {
   auto target_grid = boost::make_shared<aslam::cameras::GridCalibrationTargetCirclegrid>(5, 7, 0.01);
   std::vector<GridCalibrationTargetObservation> observations;
@@ -36,14 +40,14 @@ TEST(CameraGraphTest, DetailToCornersIdxs) {
 
   aslam::Duration tolerance(0.07);
   std::vector<SyncedSet> synced_sets;
-  for (const auto& sync_set : SyncedObservationView(observations_by_source, tolerance)) {
+  for (const auto& sync_set : kalibr2::SyncedObservationView(observations_by_source, tolerance)) {
     // Store our synced sets.
     synced_sets.push_back(sync_set);
   }
   // Convert to corners.
   std::vector<SyncedSetCorners> corners_per_set;
   std::transform(synced_sets.begin(), synced_sets.end(), std::back_inserter(corners_per_set), [](const auto& set) {
-    return ToCornersIdxs(set);
+    return kalibr2::detail::ToCornersIdxs(set);
   });
 }
 
@@ -54,26 +58,26 @@ TEST(CameraGraphTest, FromCommonCornersToGraph) {
   corners_per_set.push_back({{1, 2, 3}, {1, 3, 4, 6}, {2, 4, 6}});
   corners_per_set.push_back({{1, 3}, {2, 4, 6}, {1, 4, 6}});
 
-  std::vector<std::map<std::pair<size_t, size_t>, Corners>> common_corners_map;
+  std::vector<std::map<std::pair<size_t, size_t>, kalibr2::Corners>> common_corners_map;
   std::transform(corners_per_set.begin(), corners_per_set.end(), std::back_inserter(common_corners_map),
                  [](const auto& corners) {
-                   return GetCommonCornersMap(corners);
+                   return kalibr2::detail::GetCommonCornersMap(corners);
                  });
 
   ASSERT_EQ(common_corners_map.size(), 2) << "Should have two sets of common corners";
 
-  ASSERT_EQ(common_corners_map.at(0).at({0, 1}), (Corners{1, 3}));
-  ASSERT_EQ(common_corners_map.at(0).at({0, 2}), (Corners{2}));
-  ASSERT_EQ(common_corners_map.at(0).at({1, 2}), (Corners{4, 6}));
+  ASSERT_EQ(common_corners_map.at(0).at({0, 1}), (kalibr2::Corners{1, 3}));
+  ASSERT_EQ(common_corners_map.at(0).at({0, 2}), (kalibr2::Corners{2}));
+  ASSERT_EQ(common_corners_map.at(0).at({1, 2}), (kalibr2::Corners{4, 6}));
 
-  ASSERT_EQ(common_corners_map.at(1).at({0, 1}), (Corners{}));
-  ASSERT_EQ(common_corners_map.at(1).at({0, 2}), (Corners{1}));
-  ASSERT_EQ(common_corners_map.at(1).at({1, 2}), (Corners{4, 6}));
+  ASSERT_EQ(common_corners_map.at(1).at({0, 1}), (kalibr2::Corners{}));
+  ASSERT_EQ(common_corners_map.at(1).at({0, 2}), (kalibr2::Corners{1}));
+  ASSERT_EQ(common_corners_map.at(1).at({1, 2}), (kalibr2::Corners{4, 6}));
 
   std::vector<std::map<std::pair<size_t, size_t>, size_t>> common_corners_size_map;
   std::transform(common_corners_map.begin(), common_corners_map.end(), std::back_inserter(common_corners_size_map),
                  [](const auto& map) {
-                   return ToSizeMap(map);
+                   return kalibr2::detail::ToSizeMap(map);
                  });
 
   ASSERT_EQ(common_corners_size_map.size(), 2) << "Should have two sets of common corners sizes";
@@ -97,7 +101,7 @@ TEST(CameraGraphTest, FromCommonCornersToGraph) {
   ASSERT_EQ(common_corners_size_accumulated_map.at({0, 2}), 2);
   ASSERT_EQ(common_corners_size_accumulated_map.at({1, 2}), 4);
 
-  Graph<size_t> graph{};
+  common_robotics_utilities::simple_graph::Graph<size_t> graph{};
   for (size_t i = 0; i < corners_per_set.at(0).size(); ++i) {
     graph.AddNode(i);
   }

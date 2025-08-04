@@ -8,6 +8,8 @@
 #include <common_robotics_utilities/simple_graph.hpp>
 #include <common_robotics_utilities/simple_graph_search.hpp>
 
+namespace kalibr2 {
+
 using aslam::cameras::GridCalibrationTargetObservation;
 using SyncedSet = std::vector<std::optional<GridCalibrationTargetObservation>>;
 using Corners = std::vector<unsigned int>;
@@ -15,6 +17,8 @@ using SyncedSetCorners = std::vector<Corners>;
 using common_robotics_utilities::simple_graph::Graph;
 using common_robotics_utilities::simple_graph_search::DijkstrasResult;
 using common_robotics_utilities::simple_graph_search::PerformDijkstrasAlgorithm;
+
+namespace detail {
 
 // Get corners indices from an optional GridCalibrationTargetObservation
 Corners ToCornersIdxs(std::optional<GridCalibrationTargetObservation> observation);
@@ -37,5 +41,8 @@ std::map<KeyT, size_t> ToSizeMap(const std::map<KeyT, ValueT>& input_map) {
   }
   return size_map;
 }
+}  // namespace detail
 
 std::unique_ptr<Graph<size_t>> BuildCameraGraph(const std::vector<SyncedSet> synced_sets);
+
+}  // namespace kalibr2

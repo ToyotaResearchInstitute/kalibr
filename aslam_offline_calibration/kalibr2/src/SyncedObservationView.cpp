@@ -1,5 +1,7 @@
 #include <kalibr2/SyncedObservationView.hpp>
 
+namespace kalibr2 {
+
 SyncedObservationView::SyncedObservationView(const std::vector<std::vector<GridCalibrationTargetObservation>>& sources,
                                              aslam::Duration tolerance)
     : sources_(sources), tolerance_(tolerance) {}
@@ -78,3 +80,5 @@ void SyncedObservationView::SyncIterator::find_next_set() {
     (*pivot_it_ptr)++;
   }
 }
+
+}  // namespace kalibr2

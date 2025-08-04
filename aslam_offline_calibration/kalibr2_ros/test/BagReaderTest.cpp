@@ -201,9 +201,10 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
         observations_by_camera.at(camera_id), geometry, detector, camera_config.focal_length);
   }
 
+  // | ---- Sync observations across cameras ----|
   aslam::Duration tolerance(0.01);
-  auto synced_sets = std::vector<SyncedSet>();
-  for (const auto& sync_set : SyncedObservationView(observations_by_camera, tolerance)) {
+  auto synced_sets = std::vector<kalibr2::SyncedSet>();
+  for (const auto& sync_set : kalibr2::SyncedObservationView(observations_by_camera, tolerance)) {
     synced_sets.push_back(sync_set);
     std::cout << "\n--- Sync Set ---" << std::endl;
     for (size_t i = 0; i < sync_set.size(); ++i) {
@@ -216,7 +217,7 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
   }
 
   // | ---- Build Graph ----|
-  auto graph = BuildCameraGraph(synced_sets);
+  auto graph = kalibr2::BuildCameraGraph(synced_sets);
 }
 
 }  // namespace
