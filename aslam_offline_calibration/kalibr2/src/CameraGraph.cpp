@@ -1,0 +1,94 @@
+#include <algorithm>
+
+#include <kalibr2/CameraGraph.hpp>
+
+Corners ToCornersIdxs(std::optional<GridCalibrationTargetObservation> observation) {
+  Corners corner_idxs;
+  if (observation.has_value()) {
+    observation.value().getCornersIdx(corner_idxs);
+  }
+  return corner_idxs;
+}
+
+SyncedSetCorners ToCornersIdxs(const SyncedSet& set) {
+  SyncedSetCorners corners;
+  std::transform(set.begin(), set.end(), std::back_inserter(corners), [](const auto& observation) {
+    return ToCornersIdxs(observation);
+  });
+  return corners;
+}
+
+Corners GetCommonCorners(const Corners& corners1, const Corners& corners2) {
+  Corners common_corners;
+  std::set_intersection(corners1.begin(), corners1.end(), corners2.begin(), corners2.end(),
+                        std::back_inserter(common_corners));
+  return common_corners;
+}
+
+std::map<std::pair<size_t, size_t>, Corners> GetCommonCornersMap(const SyncedSetCorners& corners_per_set) {
+  std::map<std::pair<size_t, size_t>, Corners> common_corners_map;
+  for (size_t i = 0; i < corners_per_set.size(); ++i) {
+    for (size_t j = i + 1; j < corners_per_set.size(); ++j) {
+      Corners common_corners = GetCommonCorners(corners_per_set[i], corners_per_set[j]);
+      common_corners_map[{i, j}] = common_corners;
+    }
+  }
+  return common_corners_map;
+}
+
+std::map<std::pair<size_t, size_t>, size_t> ComputeTotalCommonCorners(const std::vector<SyncedSet> synced_sets) {
+  // Compute the edges as a function of the number of common corners
+  // between the sets of synced observations. Across the whole dataset.
+
+  // Convert the sets of synced observations to sets of corners indices
+  std::vector<SyncedSetCorners> corners_per_set;
+  std::transform(synced_sets.begin(), synced_sets.end(), std::back_inserter(corners_per_set), [](const auto& set) {
+    return ToCornersIdxs(set);
+  });
+
+  // Get common corners between all pairs of sets a map of the form (i, j) -> Corners
+  std::vector<std::map<std::pair<size_t, size_t>, Corners>> common_corners_map;
+  std::transform(corners_per_set.begin(), corners_per_set.end(), std::back_inserter(common_corners_map),
+                 [](const auto& corners) {
+                   return GetCommonCornersMap(corners);
+                 });
+
+  // Convert the common corners map to a size map (i, j) -> length(common_corners)
+  std::vector<std::map<std::pair<size_t, size_t>, size_t>> common_corners_size_map;
+  std::transform(common_corners_map.begin(), common_corners_map.end(), std::back_inserter(common_corners_size_map),
+                 [](const auto& map) {
+                   return ToSizeMap(map);
+                 });
+
+  // Accumulate the sizes of common corners across all sets
+  // This will give us a map of the form (i, j) -> total_common on the complete dataset
+  std::map<std::pair<size_t, size_t>, size_t> common_corners_size_accumulated_map;
+  for (const auto& map : common_corners_size_map) {
+    for (const auto& pair : map) {
+      common_corners_size_accumulated_map[pair.first] += pair.second;
+    }
+  }
+
+  return common_corners_size_accumulated_map;
+}
+
+std::unique_ptr<Graph<size_t>> BuildCameraGraph(const std::vector<SyncedSet> synced_sets) {
+  // Add the nodes being the cameras to the graph
+  auto graph = std::make_unique<Graph<size_t>>();
+
+  size_t num_cameras = synced_sets.at(0).size();
+  for (size_t i = 0; i < num_cameras; ++i) {
+    graph->AddNode(i);
+  }
+
+  // Add edges between nodes based on the common corners size map
+  auto common_corners_size_accumulated_map = ComputeTotalCommonCorners(synced_sets);
+  for (const auto& pair : common_corners_size_accumulated_map) {
+    if (pair.second > 0) {
+      // Abussing that idx is equal to node value.
+      graph->AddEdgesBetweenNodes(pair.first.first, pair.first.second, 1.0 / pair.second);
+    }
+  }
+
+  return graph;
+}

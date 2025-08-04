@@ -15,7 +15,9 @@ find_package(OpenCV REQUIRED)
 find_package(simple_graph REQUIRED)
 
 add_library(${PROJECT_NAME}
+  src/CameraGraph.cpp
   src/Image.cpp
+  src/SyncedObservationView.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
