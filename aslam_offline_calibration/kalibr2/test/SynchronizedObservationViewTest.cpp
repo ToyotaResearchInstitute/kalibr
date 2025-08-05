@@ -3,11 +3,11 @@
 #include <aslam/cameras/GridCalibrationTargetCirclegrid.hpp>
 #include <aslam/cameras/GridCalibrationTargetObservation.hpp>
 #include <gtest/gtest.h>
-#include <kalibr2/SyncedObservationView.hpp>
+#include <kalibr2/SynchronizedObservationView.hpp>
 
 namespace {
 
-TEST(SyncedObservationViewTest, AllWithinTolerance) {
+TEST(SynchronizedObservationViewTest, AllWithinTolerance) {
   auto target_grid = boost::make_shared<aslam::cameras::GridCalibrationTargetCirclegrid>(5, 7, 0.01);
   std::vector<aslam::cameras::GridCalibrationTargetObservation> observations;
 
@@ -33,7 +33,7 @@ TEST(SyncedObservationViewTest, AllWithinTolerance) {
 
   size_t round = 0;
   aslam::Duration tolerance(0.07);
-  for (const auto& sync_set : kalibr2::SyncedObservationView(observations_by_source, tolerance)) {
+  for (const auto& sync_set : kalibr2::SynchronizedObservationView(observations_by_source, tolerance)) {
     std::cout << "\n--- Round " << ++round << " ---" << std::endl;
     ASSERT_TRUE(std::all_of(sync_set.begin(), sync_set.end(),
                             [](const std::optional<aslam::cameras::GridCalibrationTargetObservation>& obs) {
@@ -53,7 +53,7 @@ TEST(SyncedObservationViewTest, AllWithinTolerance) {
   ASSERT_EQ(round, n_observations) << "Should have iterated through all observations";
 }
 
-TEST(SyncedObservationViewTest, TwoObservationsPerSyncedView) {
+TEST(SynchronizedObservationViewTest, TwoObservationsPerSyncedView) {
   auto target_grid = boost::make_shared<aslam::cameras::GridCalibrationTargetCirclegrid>(5, 7, 0.01);
 
   constexpr size_t n_sources = 3;
@@ -77,7 +77,7 @@ TEST(SyncedObservationViewTest, TwoObservationsPerSyncedView) {
 
   size_t round = 0;
   aslam::Duration tolerance(0.04);
-  for (const auto& sync_set : kalibr2::SyncedObservationView(observations_by_source, tolerance)) {
+  for (const auto& sync_set : kalibr2::SynchronizedObservationView(observations_by_source, tolerance)) {
     ++round;
     // At least two sources should have observations in each sync set
     int count = 0;

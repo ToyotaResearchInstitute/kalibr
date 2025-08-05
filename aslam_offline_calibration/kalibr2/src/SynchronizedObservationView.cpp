@@ -1,22 +1,22 @@
-#include <kalibr2/SyncedObservationView.hpp>
+#include <kalibr2/SynchronizedObservationView.hpp>
 
 namespace kalibr2 {
 
-SyncedObservationView::SyncedObservationView(const std::vector<std::vector<GridCalibrationTargetObservation>>& sources,
-                                             aslam::Duration tolerance)
+SynchronizedObservationView::SynchronizedObservationView(
+    const std::vector<std::vector<GridCalibrationTargetObservation>>& sources, aslam::Duration tolerance)
     : sources_(sources), tolerance_(tolerance) {}
 
-SyncedObservationView::SyncIterator SyncedObservationView::begin() const {
-  return SyncIterator(sources_, tolerance_);
+SynchronizedObservationView::Iterator SynchronizedObservationView::begin() const {
+  return Iterator(sources_, tolerance_);
 }
 
-SyncedObservationView::SyncIterator SyncedObservationView::end() const {
-  return SyncIterator();
+SynchronizedObservationView::Iterator SynchronizedObservationView::end() const {
+  return Iterator();
 }
 
-SyncedObservationView::SyncIterator::SyncIterator() : is_finished_(true) {}
+SynchronizedObservationView::Iterator::Iterator() : is_finished_(true) {}
 
-SyncedObservationView::SyncIterator::SyncIterator(
+SynchronizedObservationView::Iterator::Iterator(
     const std::vector<std::vector<GridCalibrationTargetObservation>>& sources, aslam::Duration tolerance)
     : n_sources_(sources.size()), tolerance_(tolerance), is_finished_(false) {
   for (const auto& source : sources) {
@@ -32,7 +32,7 @@ SyncedObservationView::SyncIterator::SyncIterator(
 // for observations in the time window defined by the pivot and the tolerance. If we find an observation in the time
 // window, we add it to the current sync set. If we do not find any observation in the time window, we discard the pivot
 // and continue.
-void SyncedObservationView::SyncIterator::find_next_set() {
+void SynchronizedObservationView::Iterator::find_next_set() {
   // Exclude exhausted iterators.
   std::vector<typename std::vector<GridCalibrationTargetObservation>::const_iterator> active_iterators;
   for (size_t i = 0; i < n_sources_; ++i) {
@@ -55,29 +55,17 @@ void SyncedObservationView::SyncIterator::find_next_set() {
   auto pivot_timestamp = (*pivot_it_ptr)->time();
 
   // Define the time window for synchronization.
-  aslam::Time window_start = std::max(aslam::Time(0), pivot_timestamp - tolerance_);
+  aslam::Time window_start = pivot_timestamp;
   aslam::Time window_end = pivot_timestamp + tolerance_;
 
-  // Get the next sync set.
+  // Get the next sync set. Since the sets are ordered by time, we can just iterate through the top
+  // of the iterators and check if they fall within the time window.
   current_sync_set_.assign(n_sources_, std::nullopt);
   for (size_t i = 0; i < n_sources_; ++i) {
-    auto found_it = std::find_if(iterators_[i], end_iterators_[i],
-                                 [window_start, window_end](const GridCalibrationTargetObservation& d) {
-                                   return d.time() >= window_start && d.time() <= window_end;
-                                 });
-
-    if (found_it != end_iterators_[i]) {
-      current_sync_set_[i] = *found_it;
-      // Element added, advance the iterator to the next one.
-      iterators_[i] = std::next(found_it);
+    if (iterators_[i]->time() >= window_start && iterators_[i]->time() <= window_end) {
+      current_sync_set_[i] = *iterators_[i];
+      iterators_[i]++;
     }
-  }
-
-  // If no matches were found for the current pivot discard it and continue.
-  if (std::none_of(current_sync_set_.begin(), current_sync_set_.end(), [](const auto& opt) {
-        return opt.has_value();
-      })) {
-    (*pivot_it_ptr)++;
   }
 }
 

@@ -5,7 +5,7 @@
 #include <kalibr2/CameraGraph.hpp>
 #include <kalibr2/CameraModels.hpp>
 #include <kalibr2/Image.hpp>
-#include <kalibr2/SyncedObservationView.hpp>
+#include <kalibr2/SynchronizedObservationView.hpp>
 #include <kalibr2_ros/BagReader.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -204,7 +204,7 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
   // | ---- Sync observations across cameras ----|
   aslam::Duration tolerance(0.01);
   auto synced_sets = std::vector<kalibr2::SyncedSet>();
-  for (const auto& sync_set : kalibr2::SyncedObservationView(observations_by_camera, tolerance)) {
+  for (const auto& sync_set : kalibr2::SynchronizedObservationView(observations_by_camera, tolerance)) {
     synced_sets.push_back(sync_set);
     std::cout << "\n--- Sync Set ---" << std::endl;
     for (size_t i = 0; i < sync_set.size(); ++i) {

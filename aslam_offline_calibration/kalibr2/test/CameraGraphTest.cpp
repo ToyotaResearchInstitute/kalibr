@@ -6,7 +6,7 @@
 #include <common_robotics_utilities/simple_graph_search.hpp>
 #include <gtest/gtest.h>
 #include <kalibr2/CameraGraph.hpp>
-#include <kalibr2/SyncedObservationView.hpp>
+#include <kalibr2/SynchronizedObservationView.hpp>
 
 namespace {
 
@@ -40,7 +40,7 @@ TEST(CameraGraphTest, DetailToCornersIdxs) {
 
   aslam::Duration tolerance(0.07);
   std::vector<SyncedSet> synced_sets;
-  for (const auto& sync_set : kalibr2::SyncedObservationView(observations_by_source, tolerance)) {
+  for (const auto& sync_set : kalibr2::SynchronizedObservationView(observations_by_source, tolerance)) {
     // Store our synced sets.
     synced_sets.push_back(sync_set);
   }
@@ -91,8 +91,8 @@ TEST(CameraGraphTest, FromCommonCornersToGraph) {
 
   std::map<std::pair<size_t, size_t>, size_t> common_corners_size_accumulated_map;
   for (const auto& map : common_corners_size_map) {
-    for (const auto& pair : map) {
-      common_corners_size_accumulated_map[pair.first] += pair.second;
+    for (const auto& [camera_pair, size] : map) {
+      common_corners_size_accumulated_map[camera_pair] += size;
     }
   }
 
@@ -106,10 +106,10 @@ TEST(CameraGraphTest, FromCommonCornersToGraph) {
     graph.AddNode(i);
   }
 
-  for (const auto& pair : common_corners_size_accumulated_map) {
-    if (pair.second > 0) {
+  for (const auto& [camera_pair, n_shared_observations] : common_corners_size_accumulated_map) {
+    if (n_shared_observations > 0) {
       // Abussing that idx is equal to node value.
-      graph.AddEdgesBetweenNodes(pair.first.first, pair.first.second, 1.0 / pair.second);
+      graph.AddEdgesBetweenNodes(camera_pair.first, camera_pair.second, 1.0 / n_shared_observations);
     }
   }
 }

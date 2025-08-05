@@ -3,7 +3,7 @@ find_package(GTest MODULE)
 add_executable(${PROJECT_NAME}-test
   CameraGraphTest.cpp
   ImageTest.cpp
-  SyncedObservationViewTest.cpp
+  SynchronizedObservationViewTest.cpp
 )
 
 target_link_libraries(

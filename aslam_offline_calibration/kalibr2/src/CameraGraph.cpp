@@ -68,8 +68,8 @@ std::map<std::pair<size_t, size_t>, size_t> ComputeTotalCommonCorners(const std:
   // This will give us a map of the form (i, j) -> total_common on the complete dataset
   std::map<std::pair<size_t, size_t>, size_t> common_corners_size_accumulated_map;
   for (const auto& map : common_corners_size_map) {
-    for (const auto& pair : map) {
-      common_corners_size_accumulated_map[pair.first] += pair.second;
+    for (const auto& [camera_pair, size] : map) {
+      common_corners_size_accumulated_map[camera_pair] += size;
     }
   }
 
@@ -78,21 +78,28 @@ std::map<std::pair<size_t, size_t>, size_t> ComputeTotalCommonCorners(const std:
 
 }  // namespace detail
 
-std::unique_ptr<Graph<size_t>> BuildCameraGraph(const std::vector<SyncedSet> synced_sets) {
+Graph<size_t> BuildCameraGraph(const std::vector<SyncedSet> synced_sets) {
   // Add the nodes being the cameras to the graph
-  auto graph = std::make_unique<Graph<size_t>>();
+  Graph<size_t> graph;
 
   size_t num_cameras = synced_sets.at(0).size();
+  SM_ASSERT_TRUE(std::runtime_error,
+                 std::all_of(synced_sets.begin(), synced_sets.end(),
+                             [num_cameras](const SyncedSet& set) {
+                               return set.size() == num_cameras;
+                             }),
+                 "All synced sets must have the same number of cameras");
+
   for (size_t i = 0; i < num_cameras; ++i) {
-    graph->AddNode(i);
+    graph.AddNode(i);
   }
 
   // Add edges between nodes based on the common corners size map
   auto common_corners_size_accumulated_map = detail::ComputeTotalCommonCorners(synced_sets);
-  for (const auto& pair : common_corners_size_accumulated_map) {
-    if (pair.second > 0) {
+  for (const auto& [camera_pair, n_shared_observations] : common_corners_size_accumulated_map) {
+    if (n_shared_observations > 0) {
       // Abussing that idx is equal to node value.
-      graph->AddEdgesBetweenNodes(pair.first.first, pair.first.second, 1.0 / pair.second);
+      graph.AddEdgesBetweenNodes(camera_pair.first, camera_pair.second, 1.0 / n_shared_observations);
     }
   }
 

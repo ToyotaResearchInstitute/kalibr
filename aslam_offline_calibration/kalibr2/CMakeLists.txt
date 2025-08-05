@@ -17,7 +17,7 @@ find_package(simple_graph REQUIRED)
 add_library(${PROJECT_NAME}
   src/CameraGraph.cpp
   src/Image.cpp
-  src/SyncedObservationView.cpp
+  src/SynchronizedObservationView.cpp
 )
 
 target_include_directories(${PROJECT_NAME}

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <map>
-#include <memory>
 #include <vector>
 
 #include <aslam/cameras/GridCalibrationTargetObservation.hpp>
@@ -20,8 +19,6 @@ using common_robotics_utilities::simple_graph_search::PerformDijkstrasAlgorithm;
 
 namespace detail {
 
-// Get corners indices from an optional GridCalibrationTargetObservation
-Corners ToCornersIdxs(std::optional<GridCalibrationTargetObservation> observation);
 // Convert a SyncedSet to a vector of corners indices
 SyncedSetCorners ToCornersIdxs(const SyncedSet& set);
 
@@ -36,13 +33,13 @@ std::map<std::pair<size_t, size_t>, Corners> GetCommonCornersMap(const SyncedSet
 template <typename KeyT, typename ValueT>
 std::map<KeyT, size_t> ToSizeMap(const std::map<KeyT, ValueT>& input_map) {
   std::map<KeyT, size_t> size_map;
-  for (const auto& pair : input_map) {
-    size_map[pair.first] = pair.second.size();
+  for (const auto& [key, container] : input_map) {
+    size_map[key] = container.size();
   }
   return size_map;
 }
 }  // namespace detail
 
-std::unique_ptr<Graph<size_t>> BuildCameraGraph(const std::vector<SyncedSet> synced_sets);
+Graph<size_t> BuildCameraGraph(const std::vector<SyncedSet> synced_sets);
 
 }  // namespace kalibr2
