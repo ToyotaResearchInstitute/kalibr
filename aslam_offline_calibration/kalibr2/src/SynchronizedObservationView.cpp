@@ -33,30 +33,28 @@ SynchronizedObservationView::Iterator::Iterator(
 // window, we add it to the current sync set. If we do not find any observation in the time window, we discard the pivot
 // and continue.
 void SynchronizedObservationView::Iterator::find_next_set() {
-  // Exclude exhausted iterators.
-  std::vector<typename std::vector<GridCalibrationTargetObservation>::const_iterator> active_iterators;
+  size_t n_exhausted_iterators = 0;
+  size_t pivot_index = 0;
+  // Find the pivot index, which is the iterator with the oldest observation.
   for (size_t i = 0; i < n_sources_; ++i) {
-    if (iterators_[i] != end_iterators_[i]) {
-      active_iterators.push_back(iterators_[i]);
+    if (iterators_[i] == end_iterators_[i]) {
+      n_exhausted_iterators++;
+      continue;
+    }
+    if (iterators_[i]->time() < iterators_[pivot_index]->time()) {
+      pivot_index = i;
     }
   }
 
-  // If all are exhausted, we are done.
-  if (active_iterators.empty()) {
+  // If all iterators are exhausted, we are done.
+  if (n_exhausted_iterators == n_sources_) {
     is_finished_ = true;
     return;
   }
 
-  // Choose the pivot iterator as the one with oldest data.
-  auto pivot_it_ptr =
-      std::min_element(active_iterators.begin(), active_iterators.end(), [](const auto& a, const auto& b) {
-        return a->time() < b->time();
-      });
-  auto pivot_timestamp = (*pivot_it_ptr)->time();
-
   // Define the time window for synchronization.
-  aslam::Time window_start = pivot_timestamp;
-  aslam::Time window_end = pivot_timestamp + tolerance_;
+  aslam::Time window_start = iterators_[pivot_index]->time();
+  aslam::Time window_end = window_start + tolerance_;
 
   // Get the next sync set. Since the sets are ordered by time, we can just iterate through the top
   // of the iterators and check if they fall within the time window.
