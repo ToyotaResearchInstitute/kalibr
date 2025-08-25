@@ -12,6 +12,7 @@
 #include <aslam/cameras/CameraGeometryBase.hpp>
 #include <aslam/cameras/GridCalibrationTargetObservation.hpp>
 #include <aslam/cameras/GridDetector.hpp>
+#include <kalibr2/BasicMathUtils.hpp>
 #include <kalibr2/CalibrationTools.hpp>
 #include <kalibr2/CameraModels.hpp>
 #include <sm/kinematics/RotationVector.hpp>
@@ -36,10 +37,17 @@ boost::shared_ptr<aslam::backend::TransformationBasic> AddPoseDesignVariable(
   t_Dv->setActive(true);
   problem->addDesignVariable(t_Dv);
 
-  // Create the transformation expression node
   return boost::make_shared<aslam::backend::TransformationBasic>(q_Dv->toExpression(), t_Dv->toExpression());
 }
 
+/**  Add intrinsic design variables for the camera to the optimization problem.
+ * The shutter is not active, following what the original kalibr code does.
+ * - Projection - Active
+ * - Distortion - Active
+ * - Shutter - NOT Active
+ * Deactivated variables are added to the problem object but
+ * aren't taken into consideration for optimization.
+ */
 template <typename CameraT>
 typename CameraT::DesignVariable AddIntrinsicDesignVariables(
     boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
@@ -52,6 +60,13 @@ typename CameraT::DesignVariable AddIntrinsicDesignVariables(
   return design_variable;
 }
 
+/**
+ * Adds reprojection error terms for each observed point in a calibration target view to the optimization problem.
+ *
+ * This function iterates over all points in the provided calibration target and, for each valid observed image point,
+ * constructs a reprojection error term using the provided camera model, transformation, and design variable. The error
+ * term is then added to the optimization problem for use in calibration.
+ */
 template <typename CameraT>
 void AddReprojectionErrorsForView(boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
                                   const aslam::cameras::GridCalibrationTargetObservation observation,
@@ -60,8 +75,6 @@ void AddReprojectionErrorsForView(boost::shared_ptr<aslam::calibration::Optimiza
                                   const boost::shared_ptr<aslam::cameras::GridCalibrationTargetBase>& target,
                                   const Eigen::Matrix2d& invR) {
   for (size_t i = 0; i < target->size(); ++i) {
-    // Solve the p2p problem and build the reprojection error.
-    // And add it as error term to the problem.
     auto p_target = aslam::backend::HomogeneousExpression(sm::kinematics::toHomogeneous(target->point(i)));
     Eigen::Vector2d y;
     bool valid = observation.imagePoint(i, y);
@@ -72,6 +85,10 @@ void AddReprojectionErrorsForView(boost::shared_ptr<aslam::calibration::Optimiza
   }
 }
 
+/**
+ * Create a default optimizer with the default settings used in the original
+ * Kalibr code.
+ */
 aslam::backend::Optimizer2 CreateDefaultOptimizer() {
   auto options = aslam::backend::Optimizer2Options();
   options.nThreads = 4;
@@ -84,21 +101,15 @@ aslam::backend::Optimizer2 CreateDefaultOptimizer() {
 }
 
 template <typename CameraT>
-bool CalibrateIntrinsics(const std::vector<aslam::cameras::GridCalibrationTargetObservation>& observations,
-                         const boost::shared_ptr<aslam::cameras::CameraGeometryBase>& geometry,
-                         const aslam::cameras::GridCalibrationTargetBase::Ptr& target,
-                         std::optional<double> fallback_focal_length) {
+bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrationTargetObservation>& observations,
+                           const boost::shared_ptr<aslam::cameras::CameraGeometryBase>& geometry,
+                           const aslam::cameras::GridCalibrationTargetBase::Ptr& target,
+                           std::optional<double> fallback_focal_length) {
   // Get an initial guess for the camera focal lenght, if it fails
   // to initialize it from the observations it will fallback to the
   // fallback_focal_length argument
   bool success = geometry->initializeIntrinsics(observations, fallback_focal_length);
 
-  // Setup the basic problem adding the intrinsic design variables
-  // - Projection - Active
-  // - Distortion - Active
-  // - Shutter - NOT Active
-  // Deactivated variables are added to the problem object but
-  // aren't taken into consideration for optimization.
   auto problem = boost::make_shared<aslam::calibration::OptimizationProblem>();
   auto design_variable = AddIntrinsicDesignVariables<CameraT>(problem, geometry);
 
@@ -143,47 +154,69 @@ bool CalibrateIntrinsics(const std::vector<aslam::cameras::GridCalibrationTarget
   return !retval.linearSolverFailure;
 }
 
+/**
+ * @brief Calibrates the intrinsic parameters of a single camera using bundle adjustment.
+ *
+ * This function performs a full bundle adjustment to find the optimal intrinsic parameters
+ * (projection and distortion) for a given camera model. It takes a series of observations
+ * of a known calibration target from different viewpoints.
+ *
+ * The optimization problem simultaneously refines:
+ * 1. The camera's intrinsic parameters (focal length, principal point, distortion coefficients).
+ * 2. The 6-DOF pose of the calibration target for each individual observation.
+ *
+ * @note This function modifies the input `geometry` object in-place with the optimized results.
+ *
+ * @tparam CameraT The specific camera model class (e.g., kalibr2::models::DistortedPinhole)
+ * which defines the projection, distortion, and their design variables.
+ * @param[in] observations A vector of observations of the calibration target. Each observation
+ * corresponds to a single image/view.
+ * @param[in,out] geometry The camera geometry model to be calibrated. Its initial state can provide a
+ * starting point, and it will be updated with the final optimized parameters.
+ * @param[in] target A shared pointer to the GridCalibrationTarget object, defining the 3D structure
+ * of the calibration pattern.
+ * @param[in] fallback_focal_length An optional initial guess for the focal length to use if the
+ * geometry cannot be initialized from the observations alone.
+ * @return true if the calibration and optimization were successful.
+ * @return false if the optimization failed to converge or encountered a numerical issue.
+ */
 template <typename CameraT>
-bool CalibrateIntrinsics(const std::vector<aslam::cameras::GridCalibrationTargetObservation>& observations,
-                         const boost::shared_ptr<aslam::cameras::CameraGeometryBase>& geometry,
-                         const aslam::cameras::GridCalibrationTargetBase::Ptr& target) {
-  return CalibrateIntrinsics<CameraT>(observations, geometry, target, std::nullopt);
+bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrationTargetObservation>& observations,
+                           const boost::shared_ptr<aslam::cameras::CameraGeometryBase>& geometry,
+                           const aslam::cameras::GridCalibrationTargetBase::Ptr& target) {
+  return CalibrateSingleCamera<CameraT>(observations, geometry, target, std::nullopt);
 }
 
-std::vector<std::optional<aslam::cameras::GridCalibrationTargetObservation>> GetAllObservationsFromSource(
-    const std::vector<kalibr2::SyncedSet>& sets, size_t source_index) {
-  std::vector<std::optional<aslam::cameras::GridCalibrationTargetObservation>> observations;
-
-  for (const auto& set : sets) {
-    observations.push_back(set.at(source_index));
-  }
-
-  return observations;
-}
-
-double median(std::vector<double> vec) {
-  if (vec.empty()) {
-    throw std::runtime_error("Cannot compute median of an empty vector.");
-  }
-  std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, vec.end());
-  return vec.at(vec.size() / 2);
-}
-
-Eigen::Vector3d median(std::vector<Eigen::Vector3d> vec) {
-  if (vec.empty()) {
-    throw std::runtime_error("Cannot compute median of an empty vector.");
-  }
-  std::vector<double> x, y, z;
-  for (const auto& v : vec) {
-    x.push_back(v.x());
-    y.push_back(v.y());
-    z.push_back(v.z());
-  }
-  return Eigen::Vector3d(median(x), median(y), median(z));
-}
-
+/**
+ * @brief Calibrates a stereo camera pair, optimizing both intrinsics and extrinsics jointly.
+ *
+ * This function performs a joint bundle adjustment to fully calibrate a stereo camera pair.
+ * It uses synchronized observations of a calibration target to robustly estimate all parameters.
+ * An initial guess for the stereo baseline is found by taking the median of PnP solutions from
+ * all views where the target is visible in both cameras.
+ *
+ * The large-scale optimization problem simultaneously refines:
+ * 1. Intrinsic parameters for the left camera.
+ * 2. Intrinsic parameters for the right camera.
+ * 3. The 6-DOF rigid body transformation (baseline) from the left camera to the right camera.
+ * 4. The 6-DOF pose of the calibration target for each time step.
+ *
+ * @note This function modifies the input geometry objects (`geometry_camera_L`, `geometry_camera_H`)
+ * in-place with the optimized intrinsic parameters.
+ *
+ * @tparam CameraLT The camera model class for the Left camera.
+ * @tparam CameraHT The camera model class for the Right camera.
+ * @param[in,out] geometry_camera_L The geometry model for the left camera. Will be updated with results.
+ * @param[in,out] geometry_camera_H The geometry model for the right camera. Will be updated with results.
+ * @param[in] observations_camera_L A vector of time-synchronized optional observations for the left camera.
+ * @param[in] observations_camera_H A vector of time-synchronized optional observations for the right camera.
+ * @param[in] target The shared definition of the calibration target.
+ * @return The optimized 6-DOF transformation from the left camera to the right camera ($T_{camH\_camL}$).
+ * @throws std::runtime_error if the number of observations for the two cameras do not match, or if
+ * the optimization's linear solver fails.
+ */
 template <typename CameraLT, typename CameraHT>
-sm::kinematics::Transformation stereoCalibrate(
+sm::kinematics::Transformation CalibrateStereoPair(
     boost::shared_ptr<aslam::cameras::CameraGeometryBase> geometry_camera_L,
     boost::shared_ptr<aslam::cameras::CameraGeometryBase> geometry_camera_H,
     const std::vector<std::optional<aslam::cameras::GridCalibrationTargetObservation>>& observations_camera_L,
@@ -205,12 +238,12 @@ sm::kinematics::Transformation stereoCalibrate(
 
     auto success = geometry_camera_L->estimateTransformation(observations_camera_L[i].value(), T_L);
     if (!success) {
-      std::cerr << "Failed to estimate transformation for camera L at index " << i << std::endl;
+      SM_ERROR_STREAM("Failed to estimate transformation for camera L at index " << i);
       continue;
     }
     success = geometry_camera_H->estimateTransformation(observations_camera_H[i].value(), T_H);
     if (!success) {
-      std::cerr << "Failed to estimate transformation for camera H at index " << i << std::endl;
+      SM_ERROR_STREAM("Failed to estimate transformation for camera H at index " << i);
       continue;
     }
 
@@ -223,14 +256,14 @@ sm::kinematics::Transformation stereoCalibrate(
                  [](const sm::kinematics::Transformation& t) {
                    return t.t();
                  });
-  auto median_translation = median(translations);
+  auto median_translation = kalibr2::math::median(translations);
 
   std::vector<Eigen::Vector3d> rotation_parameters;
   std::transform(transformations.begin(), transformations.end(), std::back_inserter(rotation_parameters),
                  [](const sm::kinematics::Transformation& t) {
                    return sm::kinematics::RotationVector().rotationMatrixToParameters(t.C());
                  });
-  auto median_rotation_parameters = median(rotation_parameters);
+  auto median_rotation_parameters = kalibr2::math::median(rotation_parameters);
   auto median_rotation_matrix = sm::kinematics::RotationVector().parametersToRotationMatrix(median_rotation_parameters);
 
   sm::kinematics::Transformation T_H_L_baseline =
@@ -288,8 +321,6 @@ sm::kinematics::Transformation stereoCalibrate(
   }
 
   // The options of the optimizer
-  // TODO(frneer): Consider exposing this to the user so we can tune it for each
-  // Specific calibration if needed.
   auto optimizer = CreateDefaultOptimizer();
   optimizer.setProblem(problem);
 

@@ -134,8 +134,8 @@ TEST_F(BagReaderTestFixture, Integration) {
   }
 
   constexpr double focal_length = 881.0;
-  bool success = kalibr2::tools::CalibrateIntrinsics<kalibr2::models::DistortedPinhole>(observations, geometry,
-                                                                                        target_grid, focal_length);
+  bool success = kalibr2::tools::CalibrateSingleCamera<kalibr2::models::DistortedPinhole>(observations, geometry,
+                                                                                          target_grid, focal_length);
 
   ASSERT_TRUE(success) << "Failed to calibrate intrinsics from observations";
 }
@@ -201,7 +201,7 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
   for (size_t camera_id = 0; camera_id < config.cameras.size(); ++camera_id) {
     const auto& camera_config = config.cameras.at(camera_id);
     auto detector = aslam::cameras::GridDetector(camera_geometries.at(camera_id), config.target);
-    bool success = kalibr2::tools::CalibrateIntrinsics<kalibr2::models::DistortedPinhole>(
+    bool success = kalibr2::tools::CalibrateSingleCamera<kalibr2::models::DistortedPinhole>(
         observations_by_camera.at(camera_id), camera_geometries.at(camera_id), config.target,
         camera_config.focal_length);
   }
@@ -238,10 +238,11 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
       std::cout << "Best pair for camera " << i << ": " << best_camera_pair << std::endl;
       std::cout << "Distance to camera " << i << ": " << result.GetNodeDistance(i) << std::endl;
       // Stereo calibrate pair
-      auto tf = kalibr2::tools::stereoCalibrate<kalibr2::models::DistortedPinhole, kalibr2::models::DistortedPinhole>(
-          camera_geometries.at(i), camera_geometries.at(best_camera_pair),
-          kalibr2::tools::GetAllObservationsFromSource(synced_sets, i),
-          kalibr2::tools::GetAllObservationsFromSource(synced_sets, best_camera_pair), config.target);
+      auto tf =
+          kalibr2::tools::CalibrateStereoPair<kalibr2::models::DistortedPinhole, kalibr2::models::DistortedPinhole>(
+              camera_geometries.at(i), camera_geometries.at(best_camera_pair),
+              kalibr2::GetAllObservationsFromSource(synced_sets, i),
+              kalibr2::GetAllObservationsFromSource(synced_sets, best_camera_pair), config.target);
     }
   }
 }

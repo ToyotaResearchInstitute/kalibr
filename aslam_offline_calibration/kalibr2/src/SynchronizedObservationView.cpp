@@ -70,4 +70,15 @@ void SynchronizedObservationView::Iterator::find_next_set() {
   }
 }
 
+std::vector<std::optional<aslam::cameras::GridCalibrationTargetObservation>> GetAllObservationsFromSource(
+    const std::vector<kalibr2::SyncedSet>& sets, size_t source_index) {
+  std::vector<std::optional<aslam::cameras::GridCalibrationTargetObservation>> observations;
+
+  for (const auto& set : sets) {
+    observations.push_back(set.at(source_index));
+  }
+
+  return observations;
+}
+
 }  // namespace kalibr2
