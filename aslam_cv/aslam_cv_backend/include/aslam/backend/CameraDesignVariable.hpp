@@ -26,6 +26,7 @@ namespace aslam {
 		typedef typename camera_t::shutter_t shutter_t;
 
 		CameraDesignVariable(const boost::shared_ptr<camera_t> & camera);
+		CameraDesignVariable(const boost::shared_ptr<aslam::cameras::CameraGeometryBase> & camera);
 		~CameraDesignVariable();
 
 

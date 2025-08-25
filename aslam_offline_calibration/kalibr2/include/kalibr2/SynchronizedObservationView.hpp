@@ -11,6 +11,7 @@
 namespace kalibr2 {
 
 using aslam::cameras::GridCalibrationTargetObservation;
+using SyncedSet = std::vector<std::optional<GridCalibrationTargetObservation>>;
 
 class SynchronizedObservationView {
   // A class to synchronize observations from multiple sources based on timestamps
