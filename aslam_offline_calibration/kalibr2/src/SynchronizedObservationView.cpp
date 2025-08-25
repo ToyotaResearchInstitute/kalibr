@@ -60,6 +60,9 @@ void SynchronizedObservationView::Iterator::find_next_set() {
   // of the iterators and check if they fall within the time window.
   current_sync_set_.assign(n_sources_, std::nullopt);
   for (size_t i = 0; i < n_sources_; ++i) {
+    if (iterators_[i] == end_iterators_[i]) {
+      continue;
+    }
     if (iterators_[i]->time() >= window_start && iterators_[i]->time() <= window_end) {
       current_sync_set_[i] = *iterators_[i];
       iterators_[i]++;

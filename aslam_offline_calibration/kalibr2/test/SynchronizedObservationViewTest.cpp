@@ -8,7 +8,10 @@
 namespace {
 
 TEST(SynchronizedObservationViewTest, AllWithinTolerance) {
-  auto target_grid = boost::make_shared<aslam::cameras::GridCalibrationTargetCirclegrid>(5, 7, 0.01);
+  constexpr int n_rows = 5;
+  constexpr int n_cols = 7;
+  constexpr double spacing = 0.01;
+  const auto target_grid = boost::make_shared<aslam::cameras::GridCalibrationTargetCirclegrid>(n_rows, n_cols, spacing);
   std::vector<aslam::cameras::GridCalibrationTargetObservation> observations;
 
   constexpr size_t n_sources = 3;

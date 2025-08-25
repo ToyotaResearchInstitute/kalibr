@@ -99,7 +99,8 @@ Graph<size_t> BuildCameraGraph(const std::vector<SyncedSet> synced_sets) {
   for (const auto& [camera_pair, n_shared_observations] : common_corners_size_accumulated_map) {
     if (n_shared_observations > 0) {
       // Abussing that idx is equal to node value.
-      graph.AddEdgesBetweenNodes(camera_pair.first, camera_pair.second, 1.0 / n_shared_observations);
+      const auto& [cam_idx_1, cam_idx_2] = camera_pair;
+      graph.AddEdgesBetweenNodes(cam_idx_1, cam_idx_2, 1.0 / n_shared_observations);
     }
   }
 
