@@ -12,9 +12,12 @@ find_package(aslam_time REQUIRED)
 find_package(aslam_cv_error_terms REQUIRED)
 find_package(incremental_calibration REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(simple_graph REQUIRED)
 
 add_library(${PROJECT_NAME}
+  src/CameraGraph.cpp
   src/Image.cpp
+  src/SynchronizedObservationView.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -32,6 +35,7 @@ target_link_libraries(${PROJECT_NAME}
   aslam_cv_error_terms::aslam_cv_error_terms
   incremental_calibration::incremental_calibration
   ${OpenCV_LIBS}
+  simple_graph::simple_graph
 )
 
 target_compile_options(

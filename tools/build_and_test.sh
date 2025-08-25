@@ -20,6 +20,7 @@ packages=(
     "incremental_calibration" \
     "kalibr2" \
     "kalibr2_ros" \
+    "simple_graph" \
     "sm_boost" \
     "sm_common" \
     "sm_eigen" \
