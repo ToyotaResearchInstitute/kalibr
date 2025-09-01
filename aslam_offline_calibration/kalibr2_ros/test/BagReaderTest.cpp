@@ -230,6 +230,7 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
       common_robotics_utilities::simple_graph_search::PerformDijkstrasAlgorithm(graph, start_node_idx);
 
   // | ---- Stereo Calibration Best Pairs ----|
+  std::map<std::pair<size_t, size_t>, sm::kinematics::Transformation> optimal_baselines;
   for (size_t i = 0; i < config.cameras.size(); ++i) {
     if (i == start_node_idx) {
       continue;  // Skip the start node
@@ -243,7 +244,35 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
               camera_geometries.at(i), camera_geometries.at(best_camera_pair),
               kalibr2::GetAllObservationsFromSource(synced_sets, i),
               kalibr2::GetAllObservationsFromSource(synced_sets, best_camera_pair), config.target);
+      optimal_baselines[{i, best_camera_pair}] = tf;
     }
+  }
+
+  for (size_t i = 0; i < config.cameras.size() - 1; ++i) {
+    std::cout << "Checking for transform between camera " << i << " and " << i + 1 << std::endl;
+    // If the transform is already in the map, continue
+    auto tf_it = optimal_baselines.find({i, i + 1});
+    if (tf_it != optimal_baselines.end()) {
+      std::cout << "Transform already exists between camera " << i << " and " << i + 1 << std::endl;
+      continue;
+    }
+
+    // If the inverse transform is in the map, add the inverse and continue
+    tf_it = optimal_baselines.find({i + 1, i});
+    if (tf_it != optimal_baselines.end()) {
+      std::cout << "Inverse transform found between camera " << i + 1 << " and " << i << std::endl;
+      optimal_baselines[{i, i + 1}] = tf_it->second.inverse();
+      continue;
+    }
+
+    // Otherwise, compute the transform using Dijkstra's result
+    auto tf = kalibr2::GetTransform(optimal_baselines, result, i, i + 1);
+    optimal_baselines[{i, i + 1}] = tf;
+  }
+
+  for (size_t i = 0; i < config.cameras.size() - 1; ++i) {
+    auto tf_it = optimal_baselines.find({i, i + 1});
+    ASSERT_TRUE(tf_it != optimal_baselines.end()) << "No transform found for camera pair: " << i << " and " << i + 1;
   }
 }
 
