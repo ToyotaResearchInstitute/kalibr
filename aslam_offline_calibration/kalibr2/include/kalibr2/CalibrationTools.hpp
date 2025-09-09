@@ -52,6 +52,7 @@ template <typename CameraT>
 typename CameraT::DesignVariable AddIntrinsicDesignVariables(
     boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
     const boost::shared_ptr<aslam::cameras::CameraGeometryBase>& geometry) {
+  // TODO(frneer): can we get the design variable from the geometry?
   auto design_variable = typename CameraT::DesignVariable(geometry);
   design_variable.setActive(true, true, false);
   problem->addDesignVariable(design_variable.projectionDesignVariable());
@@ -68,17 +69,20 @@ typename CameraT::DesignVariable AddIntrinsicDesignVariables(
  * term is then added to the optimization problem for use in calibration.
  */
 template <typename CameraT>
-void AddReprojectionErrorsForView(boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
-                                  const aslam::cameras::GridCalibrationTargetObservation observation,
-                                  const aslam::backend::TransformationExpression& T_cam_w,
-                                  const typename CameraT::DesignVariable& design_variable,
-                                  const boost::shared_ptr<aslam::cameras::GridCalibrationTargetBase>& target,
-                                  const Eigen::Matrix2d& invR) {
+void AddReprojectionErrorsForView(
+    boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
+    const aslam::cameras::GridCalibrationTargetObservation& observation,
+    const aslam::backend::TransformationExpression& T_cam_w,
+    // TODO(frneer): can we encapsulate the design variable or have a design variable base class?
+    const typename CameraT::DesignVariable& design_variable,
+    const boost::shared_ptr<aslam::cameras::GridCalibrationTargetBase>& target, const Eigen::Matrix2d& invR) {
   for (size_t i = 0; i < target->size(); ++i) {
     auto p_target = aslam::backend::HomogeneousExpression(sm::kinematics::toHomogeneous(target->point(i)));
     Eigen::Vector2d y;
     bool valid = observation.imagePoint(i, y);
     if (valid) {
+      // TODO(frneer): How can we generate this reprojection error term without knowing the camera model at compile
+      // time?
       auto rerr = boost::make_shared<typename CameraT::ReprojectionError>(y, invR, T_cam_w * p_target, design_variable);
       problem->addErrorTerm(rerr);
     }
@@ -335,6 +339,64 @@ sm::kinematics::Transformation CalibrateStereoPair(
   auto baseline_HL = sm::kinematics::Transformation(baseline_dv->toExpression().toTransformationMatrix());
 
   return baseline_HL;
+}
+
+sm::kinematics::Transformation getTargetPoseGuess(
+    std::vector<boost::shared_ptr<aslam::cameras::CameraGeometryBase>>& geometries, const SyncedSet& synced_set,
+    const std::map<std::pair<size_t, size_t>, sm::kinematics::Transformation>& transformation_map) {
+  std::vector<size_t> n_corners;
+  std::transform(synced_set.begin(), synced_set.end(), std::back_inserter(n_corners),
+                 [](const std::optional<aslam::cameras::GridCalibrationTargetObservation>& obs) {
+                   return obs.has_value() ? obs.value().getCornersIdx().size() : 0;
+                 });
+  auto max_index = std::distance(n_corners.begin(), std::max_element(n_corners.begin(), n_corners.end()));
+  auto geometry = geometries[max_index];
+  auto observation = synced_set[max_index];
+
+  auto T_t_cN = sm::kinematics::Transformation();
+  geometry->estimateTransformation(observation.value(), T_t_cN);
+
+  std::vector<sm::kinematics::Transformation> camera_transforms;
+  for (size_t i = 0; i < max_index - 1; ++i) {
+    auto it = transformation_map.find({i, i + 1});
+    if (it != transformation_map.end()) {
+      camera_transforms.push_back(it->second);
+    } else {
+      throw std::runtime_error("Missing transformation between cameras in the transformation map.");
+    }
+  }
+  auto T_cN_t_c0 = std::accumulate(camera_transforms.begin(), camera_transforms.end(), T_t_cN,
+                                   std::multiplies<sm::kinematics::Transformation>());
+  auto T_t_c0 = T_t_cN * T_cN_t_c0;
+  return T_t_c0;
+}
+
+std::vector<sm::kinematics::Transformation> CalibrateMultiCameraRig(
+    const std::vector<boost::shared_ptr<aslam::cameras::CameraGeometryBase>>& geometries,
+    const std::vector<SyncedSet>& synced_observations, const aslam::cameras::GridCalibrationTargetBase::Ptr& target,
+    const std::vector<sm::kinematics::Transformation>& baseline_guesses) {
+  auto problem = boost::make_shared<aslam::calibration::OptimizationProblem>();
+  for (const auto& geometry : geometries) {
+    // Problem 1: Template parameter
+    kalibr2::tools::AddIntrinsicDesignVariables(problem, geometry);
+  }
+
+  auto baseline_dvs = std::vector<boost::shared_ptr<aslam::backend::TransformationBasic>>();
+  std::transform(baseline_guesses.begin(), baseline_guesses.end(), std::back_inserter(baseline_dvs),
+                 [&problem](const sm::kinematics::Transformation& t) {
+                   return kalibr2::tools::AddPoseDesignVariable(problem, t);
+                 });
+
+  auto corner_uncertainty = 1.0;
+  Eigen::Matrix2d R = Eigen::Matrix2d::Identity() * corner_uncertainty * corner_uncertainty;
+  Eigen::Matrix2d invR = R.inverse();
+
+  std::vector<boost::shared_ptr<aslam::backend::TransformationBasic>> target_pose_dvs;
+  for (const auto& synced_set : synced_observations) {
+    auto T0 = getTargetPoseGuess(synced_set);
+    auto target_pose_dv = kalibr2::tools::AddPoseDesignVariable(problem, T0);
+    target_pose_dvs.push_back(target_pose_dv);
+  }
 }
 
 }  // namespace tools
