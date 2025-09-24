@@ -2,6 +2,7 @@
 #include <aslam/cameras/GridDetector.hpp>
 #include <gtest/gtest.h>
 #include <kalibr2/CalibrationTools.hpp>
+#include <kalibr2/CameraCalibrator.hpp>
 #include <kalibr2/CameraGraph.hpp>
 #include <kalibr2/CameraModels.hpp>
 #include <kalibr2/Image.hpp>
@@ -109,8 +110,9 @@ TEST_F(BagReaderTestFixture, Integration) {
   constexpr double tag_spacing = 0.2954;
   auto target_grid =
       boost::make_shared<aslam::cameras::GridCalibrationTargetAprilgrid>(rows, cols, tag_size, tag_spacing);
-  auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
-  auto detector = aslam::cameras::GridDetector(geometry, target_grid);
+  // auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
+  auto calibrator = boost::make_shared<kalibr2::CameraCalibrator<kalibr2::models::DistortedPinhole>>();
+  auto detector = aslam::cameras::GridDetector(calibrator->camera_geometry(), target_grid);
 
   constexpr size_t min_num_observation = 10;
   std::vector<aslam::cameras::GridCalibrationTargetObservation> observations;
@@ -134,8 +136,7 @@ TEST_F(BagReaderTestFixture, Integration) {
   }
 
   constexpr double focal_length = 881.0;
-  bool success = kalibr2::tools::CalibrateSingleCamera<kalibr2::models::DistortedPinhole>(observations, geometry,
-                                                                                          target_grid, focal_length);
+  bool success = kalibr2::tools::CalibrateSingleCamera(observations, calibrator, target_grid, focal_length);
 
   ASSERT_TRUE(success) << "Failed to calibrate intrinsics from observations";
 }
@@ -161,10 +162,13 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
   config.cameras.emplace_back(CameraConfig{kalibr2::ros::BagImageReaderFactory::create(bag_path, "/BFS_25037058/image"),
                                            "DistortedPinhole", 881.0});
 
-  std::vector<boost::shared_ptr<aslam::cameras::CameraGeometryBase>> camera_geometries;
+  // std::vector<boost::shared_ptr<aslam::cameras::CameraGeometryBase>> camera_geometries;
+  std::vector<boost::shared_ptr<kalibr2::CameraCalibratorBase>> camera_calibrators;
   for (const auto& camera_config : config.cameras) {
-    auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
-    camera_geometries.push_back(geometry);
+    // auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
+    // camera_geometries.push_back(geometry);
+    auto calibrator = boost::make_shared<kalibr2::CameraCalibrator<kalibr2::models::DistortedPinhole>>();
+    camera_calibrators.push_back(calibrator);
   }
 
   // |---- Extract observations for each camera ----|
@@ -173,7 +177,7 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
 
   for (size_t camera_id = 0; camera_id < config.cameras.size(); ++camera_id) {
     const auto& camera_config = config.cameras.at(camera_id);
-    auto detector = aslam::cameras::GridDetector(camera_geometries.at(camera_id), config.target);
+    auto detector = aslam::cameras::GridDetector(camera_calibrators.at(camera_id)->camera_geometry(), config.target);
     auto max_observations = 10;
     auto observations = 0;
 
@@ -200,10 +204,10 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
   // |---- Get initial intrinsic guess for each camera ----|
   for (size_t camera_id = 0; camera_id < config.cameras.size(); ++camera_id) {
     const auto& camera_config = config.cameras.at(camera_id);
-    auto detector = aslam::cameras::GridDetector(camera_geometries.at(camera_id), config.target);
-    bool success = kalibr2::tools::CalibrateSingleCamera<kalibr2::models::DistortedPinhole>(
-        observations_by_camera.at(camera_id), camera_geometries.at(camera_id), config.target,
-        camera_config.focal_length);
+    auto detector = aslam::cameras::GridDetector(camera_calibrators.at(camera_id)->camera_geometry(), config.target);
+    bool success =
+        kalibr2::tools::CalibrateSingleCamera(observations_by_camera.at(camera_id), camera_calibrators.at(camera_id),
+                                              config.target, camera_config.focal_length);
   }
 
   // | ---- Sync observations across cameras ----|
@@ -239,11 +243,10 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
       std::cout << "Best pair for camera " << i << ": " << best_camera_pair << std::endl;
       std::cout << "Distance to camera " << i << ": " << result.GetNodeDistance(i) << std::endl;
       // Stereo calibrate pair
-      auto tf =
-          kalibr2::tools::CalibrateStereoPair<kalibr2::models::DistortedPinhole, kalibr2::models::DistortedPinhole>(
-              camera_geometries.at(i), camera_geometries.at(best_camera_pair),
-              kalibr2::GetAllObservationsFromSource(synced_sets, i),
-              kalibr2::GetAllObservationsFromSource(synced_sets, best_camera_pair), config.target);
+      auto tf = kalibr2::tools::CalibrateStereoPair(
+          camera_calibrators.at(i), camera_calibrators.at(best_camera_pair),
+          kalibr2::GetAllObservationsFromSource(synced_sets, i),
+          kalibr2::GetAllObservationsFromSource(synced_sets, best_camera_pair), config.target);
       optimal_baselines[{i, best_camera_pair}] = tf;
     }
   }
