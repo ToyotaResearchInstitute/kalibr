@@ -16,7 +16,6 @@ find_package(simple_graph REQUIRED)
 
 add_library(${PROJECT_NAME}
   src/BasicMathUtils.cpp
-  # src/CameraCalibrator.cpp
   src/CameraGraph.cpp
   src/Image.cpp
   src/SynchronizedObservationView.cpp

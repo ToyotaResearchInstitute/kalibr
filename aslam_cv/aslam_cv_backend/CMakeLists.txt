@@ -20,12 +20,10 @@ find_package(sm_timing REQUIRED)
 find_package(sparse_block_matrix REQUIRED)
 
 
-add_library(${PROJECT_NAME} INTERFACE
-  # src/GridCalibrationTargetDesignVariableContainer.cpp
-)
+add_library(${PROJECT_NAME} INTERFACE)
 
-target_include_directories(${PROJECT_NAME} INTERFACE
-  # PUBLIC
+target_include_directories(${PROJECT_NAME}
+  INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )

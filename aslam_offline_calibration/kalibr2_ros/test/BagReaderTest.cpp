@@ -110,7 +110,6 @@ TEST_F(BagReaderTestFixture, Integration) {
   constexpr double tag_spacing = 0.2954;
   auto target_grid =
       boost::make_shared<aslam::cameras::GridCalibrationTargetAprilgrid>(rows, cols, tag_size, tag_spacing);
-  // auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
   auto calibrator = boost::make_shared<kalibr2::CameraCalibrator<kalibr2::models::DistortedPinhole>>();
   auto detector = aslam::cameras::GridDetector(calibrator->camera_geometry(), target_grid);
 
@@ -162,11 +161,8 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
   config.cameras.emplace_back(CameraConfig{kalibr2::ros::BagImageReaderFactory::create(bag_path, "/BFS_25037058/image"),
                                            "DistortedPinhole", 881.0});
 
-  // std::vector<boost::shared_ptr<aslam::cameras::CameraGeometryBase>> camera_geometries;
   std::vector<boost::shared_ptr<kalibr2::CameraCalibratorBase>> camera_calibrators;
   for (const auto& camera_config : config.cameras) {
-    // auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
-    // camera_geometries.push_back(geometry);
     auto calibrator = boost::make_shared<kalibr2::CameraCalibrator<kalibr2::models::DistortedPinhole>>();
     camera_calibrators.push_back(calibrator);
   }

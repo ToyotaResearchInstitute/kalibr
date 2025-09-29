@@ -41,55 +41,6 @@ boost::shared_ptr<aslam::backend::TransformationBasic> AddPoseDesignVariable(
   return boost::make_shared<aslam::backend::TransformationBasic>(q_Dv->toExpression(), t_Dv->toExpression());
 }
 
-/**  Add intrinsic design variables for the camera to the optimization problem.
- * The shutter is not active, following what the original kalibr code does.
- * - Projection - Active
- * - Distortion - Active
- * - Shutter - NOT Active
- * Deactivated variables are added to the problem object but
- * aren't taken into consideration for optimization.
- */
-template <typename CameraT>
-typename CameraT::DesignVariable AddIntrinsicDesignVariables(
-    boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
-    const boost::shared_ptr<aslam::cameras::CameraGeometryBase>& geometry) {
-  // TODO(frneer): can we get the design variable from the geometry?
-  auto design_variable = typename CameraT::DesignVariable(geometry);
-  design_variable.setActive(true, true, false);
-  problem->addDesignVariable(design_variable.projectionDesignVariable());
-  problem->addDesignVariable(design_variable.distortionDesignVariable());
-  problem->addDesignVariable(design_variable.shutterDesignVariable());
-  return design_variable;
-}
-
-/**
- * Adds reprojection error terms for each observed point in a calibration target view to the optimization problem.
- *
- * This function iterates over all points in the provided calibration target and, for each valid observed image point,
- * constructs a reprojection error term using the provided camera model, transformation, and design variable. The error
- * term is then added to the optimization problem for use in calibration.
- */
-template <typename CameraT>
-void AddReprojectionErrorsForView(
-    boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
-    const aslam::cameras::GridCalibrationTargetObservation& observation,
-    const aslam::backend::TransformationExpression& T_cam_w,
-    // TODO(frneer): can we encapsulate the design variable or have a design variable base class?
-    const typename CameraT::DesignVariable& design_variable,
-    const boost::shared_ptr<aslam::cameras::GridCalibrationTargetBase>& target, const Eigen::Matrix2d& invR) {
-  for (size_t i = 0; i < target->size(); ++i) {
-    auto p_target = aslam::backend::HomogeneousExpression(sm::kinematics::toHomogeneous(target->point(i)));
-    Eigen::Vector2d y;
-    bool valid = observation.imagePoint(i, y);
-    if (valid) {
-      // TODO(frneer): How can we generate this reprojection error term without knowing the camera model at compile
-      // time?
-      auto rerr = boost::make_shared<typename CameraT::ReprojectionError>(y, invR, T_cam_w * p_target, design_variable);
-      problem->addErrorTerm(rerr);
-    }
-  }
-}
-
 /**
  * Create a default optimizer with the default settings used in the original
  * Kalibr code.
