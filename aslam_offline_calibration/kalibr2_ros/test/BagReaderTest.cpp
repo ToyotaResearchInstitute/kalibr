@@ -273,10 +273,16 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
     optimal_baselines[{i, i + 1}] = tf;
   }
 
+  std::vector<sm::kinematics::Transformation> baseline_guesses;
   for (size_t i = 0; i < config.cameras.size() - 1; ++i) {
     auto tf_it = optimal_baselines.find({i, i + 1});
     ASSERT_TRUE(tf_it != optimal_baselines.end()) << "No transform found for camera pair: " << i << " and " << i + 1;
+    baseline_guesses.push_back(tf_it->second);
   }
+
+  // | ---- Refine guess in full batch optimization ----|
+  auto baselines =
+      kalibr2::tools::CalibrateMultiCameraRig(camera_calibrators, synced_sets, config.target, baseline_guesses);
 }
 
 }  // namespace
