@@ -56,8 +56,32 @@ aslam::backend::Optimizer2 CreateDefaultOptimizer() {
   return aslam::backend::Optimizer2(options);
 }
 
+/**
+ * @brief Calibrates the intrinsic parameters of a single camera using bundle adjustment.
+ *
+ * This function performs a full bundle adjustment to find the optimal intrinsic parameters
+ * (projection and distortion) for a given camera model. It takes a series of observations
+ * of a known calibration target from different viewpoints.
+ *
+ * The optimization problem simultaneously refines:
+ * 1. The camera's intrinsic parameters (focal length, principal point, distortion coefficients).
+ * 2. The 6-DOF pose of the calibration target for each individual observation.
+ *
+ * @note This function modifies the input `geometry` object in-place with the optimized results.
+ *
+ * @tparam CameraT The specific camera model class (e.g., kalibr2::models::DistortedPinhole)
+ * which defines the projection, distortion, and their design variables.
+ * @param[in] observations A vector of observations of the calibration target. Each observation
+ * corresponds to a single image/view.
+ * @param[in,out] calibrator The camera calibrator instance that will be used for optimization.
+ * @param[in] target A shared pointer to the GridCalibrationTarget object, defining the 3D structure
+ * of the calibration pattern.
+ * @param[in] fallback_focal_length An optional fallback focal length to use if the camera intrinsics
+ * cannot be initialized from the observations.
+ * @return true if the calibration and optimization were successful.
+ * @return false if the optimization failed to converge or encountered a numerical issue.
+ */
 inline bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrationTargetObservation>& observations,
-                                  //  const boost::shared_ptr<aslam::cameras::CameraGeometryBase>& geometry,
                                   const boost::shared_ptr<kalibr2::CameraCalibratorBase>& camera_calibrator,
                                   const aslam::cameras::GridCalibrationTargetBase::Ptr& target,
                                   std::optional<double> fallback_focal_length) {
@@ -113,32 +137,8 @@ inline bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrat
 }
 
 /**
- * @brief Calibrates the intrinsic parameters of a single camera using bundle adjustment.
- *
- * This function performs a full bundle adjustment to find the optimal intrinsic parameters
- * (projection and distortion) for a given camera model. It takes a series of observations
- * of a known calibration target from different viewpoints.
- *
- * The optimization problem simultaneously refines:
- * 1. The camera's intrinsic parameters (focal length, principal point, distortion coefficients).
- * 2. The 6-DOF pose of the calibration target for each individual observation.
- *
- * @note This function modifies the input `geometry` object in-place with the optimized results.
- *
- * @tparam CameraT The specific camera model class (e.g., kalibr2::models::DistortedPinhole)
- * which defines the projection, distortion, and their design variables.
- * @param[in] observations A vector of observations of the calibration target. Each observation
- * corresponds to a single image/view.
- * @param[in,out] geometry The camera geometry model to be calibrated. Its initial state can provide a
- * starting point, and it will be updated with the final optimized parameters.
- * @param[in] target A shared pointer to the GridCalibrationTarget object, defining the 3D structure
- * of the calibration pattern.
- * @param[in] fallback_focal_length An optional initial guess for the focal length to use if the
- * geometry cannot be initialized from the observations alone.
- * @return true if the calibration and optimization were successful.
- * @return false if the optimization failed to converge or encountered a numerical issue.
+ * @brief Wrapper for CalibrateSingleCamera without fallback focal length.
  */
-// template <typename CameraT>
 inline bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrationTargetObservation>& observations,
                                   const boost::shared_ptr<kalibr2::CameraCalibratorBase>& calibrator,
                                   const aslam::cameras::GridCalibrationTargetBase::Ptr& target) {
@@ -243,6 +243,8 @@ inline sm::kinematics::Transformation CalibrateStereoPair(
     } else if (observations_camera_H[i].has_value()) {
       calibrator_H->camera_geometry()->estimateTransformation(observations_camera_H[i].value(), T_H);
       T_L = T_H * T_H_L_baseline.inverse();
+    } else {
+      continue;  // Skip if neither observation is available
     }
     auto target_pose_dv = kalibr2::tools::AddPoseDesignVariable(problem, T_L);
     target_pose_dvs.push_back(target_pose_dv);
@@ -284,8 +286,6 @@ inline sm::kinematics::Transformation CalibrateStereoPair(
     std::runtime_error("Linear solver failed during optimization.");
   }
 
-  // Note (frneer): It doesn't seems right to use baseline_dv, here since it's not the actual optimized
-  // transformation from camera L to camera H....
   // Update the transformation with the optimized values
   auto baseline_HL = sm::kinematics::Transformation(baseline_dv->toExpression().toTransformationMatrix());
 
