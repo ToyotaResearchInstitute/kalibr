@@ -56,7 +56,6 @@ aslam::backend::Optimizer2 CreateDefaultOptimizer() {
   return aslam::backend::Optimizer2(options);
 }
 
-// template <typename CameraT>
 inline bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrationTargetObservation>& observations,
                                   //  const boost::shared_ptr<aslam::cameras::CameraGeometryBase>& geometry,
                                   const boost::shared_ptr<kalibr2::CameraCalibratorBase>& camera_calibrator,
@@ -317,7 +316,7 @@ sm::kinematics::Transformation getTargetPoseGuess(
                      auto n_corners = obs.value().getCornersIdx(corners_idx);
                      return n_corners;
                    } else {
-                     return (unsigned int)0;
+                     return 0U;
                    }
                  });
   auto max_index = std::distance(n_corners.begin(), std::max_element(n_corners.begin(), n_corners.end()));
@@ -366,7 +365,7 @@ std::vector<sm::kinematics::Transformation> CalibrateMultiCameraRig(
                    return kalibr2::tools::AddPoseDesignVariable(problem, t);
                  });
 
-  auto corner_uncertainty = 1.0;
+  constexpr double corner_uncertainty = 1.0;
   Eigen::Matrix2d R = Eigen::Matrix2d::Identity() * corner_uncertainty * corner_uncertainty;
   Eigen::Matrix2d invR = R.inverse();
 

@@ -6,7 +6,6 @@ project(aslam_cv_backend
 
 find_package(aslam_backend REQUIRED)
 find_package(aslam_backend_expressions REQUIRED)
-# find_package(aslam_cameras REQUIRED)
 find_package(aslam_time REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system)
 find_package(sm_boost REQUIRED)
