@@ -14,6 +14,8 @@ class CameraCalibratorBase {
  public:
   virtual ~CameraCalibratorBase() {}
   virtual void AddIntrinsicDesignVariables(boost::shared_ptr<aslam::calibration::OptimizationProblem> problem) = 0;
+  virtual void AddIntrinsicDesignVariables(boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
+                                           size_t group_id) = 0;
   virtual void AddReprojectionErrorsForView(boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
                                             const aslam::cameras::GridCalibrationTargetObservation& observation,
                                             const aslam::backend::TransformationExpression& T_cam_w,
@@ -30,11 +32,16 @@ class CameraCalibrator : public CameraCalibratorBase {
 
   ~CameraCalibrator() override = default;
 
-  void AddIntrinsicDesignVariables(boost::shared_ptr<aslam::calibration::OptimizationProblem> problem) {
+  void AddIntrinsicDesignVariables(boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
+                                   size_t group_id) {
     design_variable_.setActive(true, true, false);
-    problem->addDesignVariable(design_variable_.projectionDesignVariable());
-    problem->addDesignVariable(design_variable_.distortionDesignVariable());
-    problem->addDesignVariable(design_variable_.shutterDesignVariable());
+    problem->addDesignVariable(design_variable_.projectionDesignVariable(), group_id);
+    problem->addDesignVariable(design_variable_.distortionDesignVariable(), group_id);
+    problem->addDesignVariable(design_variable_.shutterDesignVariable(), group_id);
+  }
+
+  void AddIntrinsicDesignVariables(boost::shared_ptr<aslam::calibration::OptimizationProblem> problem) {
+    AddIntrinsicDesignVariables(problem, 0);
   }
 
   void AddReprojectionErrorsForView(boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,

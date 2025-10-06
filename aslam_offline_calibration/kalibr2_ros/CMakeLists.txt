@@ -17,6 +17,9 @@ find_package(OpenCV REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 
+# Temporal include directories
+find_package(incremental_calibration REQUIRED)
+
 add_library(${PROJECT_NAME}
   src/BagReader.cpp
 )
@@ -36,6 +39,8 @@ target_link_libraries(${PROJECT_NAME}
   rosbag2_storage::rosbag2_storage
   rosbag2_transport::rosbag2_transport
   ${OpenCV_LIBS}
+  # Temporal linking
+  incremental_calibration::incremental_calibration
 )
 
 ament_target_dependencies(

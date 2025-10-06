@@ -11,6 +11,9 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
+// Temporal includes
+#include <aslam/calibration/core/IncrementalEstimator.h>
+
 namespace {
 
 TEST(BagReaderTest, InvalidBagFile) {
@@ -225,6 +228,7 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
   // | ---- Build Graph ----|
   auto graph = kalibr2::BuildCameraGraph(synced_sets);
 
+  // |||| THIS IS WHERE THE original call calls getInitialGuesses to get the baselines ||||
   // | ---- Perform Dijkstra's Algorithm ----|
   constexpr size_t start_node_idx = 0;
   common_robotics_utilities::simple_graph_search::DijkstrasResult result =
@@ -280,6 +284,69 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
   // | ---- Refine guess in full batch optimization ----|
   auto baselines =
       kalibr2::tools::CalibrateMultiCameraRig(camera_calibrators, synced_sets, config.target, baseline_guesses);
+
+  // |||| (END) THIS IS WHERE THE original call calls getInitialGuesses to get the baselines ||||
+
+  // | ----
+  constexpr int CALIBRATION_GROUP_ID = 0;
+  auto ic_options = aslam::calibration::IncrementalEstimator::Options();
+  ic_options.infoGainDelta = 0.2;  // TODO(frneer): This is coming from the cli
+  ic_options.checkValidity = true;
+  ic_options.verbose = true;  // same here
+
+  auto linear_solver_options = aslam::calibration::LinearSolverOptions();
+  linear_solver_options.columnScaling = true;
+  linear_solver_options.verbose = true;
+  linear_solver_options.epsSVD = 1e-6;
+
+  auto optimizer_options = aslam::backend::Optimizer2Options();
+  // original code maxes the number based on available cores
+  optimizer_options.maxIterations = 50;
+  optimizer_options.nThreads = 1;
+  optimizer_options.verbose = true;
+  auto estimator = aslam::calibration::IncrementalEstimator(CALIBRATION_GROUP_ID, ic_options, linear_solver_options,
+                                                            optimizer_options);
+
+  // TODO(frneer): randomize the order of sync sets on request
+  // std::random_shuffle(synced_sets.begin(), synced_sets.end());
+  std::vector<boost::shared_ptr<aslam::calibration::OptimizationProblem>> batch_problems;
+  for (auto& synced_set : synced_sets) {
+    auto T_tc_guess = kalibr2::tools::getTargetPoseGuess(camera_calibrators, synced_set, baseline_guesses);
+    // auto batch_problem = OptimizationProblem();
+    std::cout << "\n--- New Batch Problem ---" << std::endl;
+    auto batch_problem_struct =
+        kalibr2::tools::CreateBatchProblem(camera_calibrators, synced_set, T_tc_guess, baseline_guesses, config.target);
+    std::cout << "Created batch problem with " << std::endl;
+    // define the problem as in original code
+    auto batch_return_value = estimator.addBatch(batch_problem_struct.problem);
+    std::cout << "Attempt to add batch" << std::endl;
+    if (batch_return_value.numIterations > optimizer_options.maxIterations) {
+      throw std::runtime_error("Optimizer reached max iterations. Something went wrong.");
+    }
+
+    if (batch_return_value.batchAccepted) {
+      std::cout << "Batch accepted. Information gain: " << batch_return_value.informationGain << std::endl;
+      batch_problems.push_back(batch_problem_struct.problem);
+    } else {
+      std::cout << "Batch rejected." << std::endl;
+    }
+  }
+
+  for (auto& camera_calibrator : camera_calibrators) {
+    std::cout << "\n--- Final Camera Parameters ---" << std::endl;
+    Eigen::MatrixXd k;
+    camera_calibrator->camera_geometry()->getParameters(k, true, true, false);
+    std::cout << "Intrinsics: " << std::endl;
+    std::cout << k << std::endl;
+
+    std::cout << "Extrinsics: " << std::endl;
+    for (const auto& baseline : baseline_guesses) {
+      std::cout << "Translation: " << std::endl;
+      std::cout << baseline.t() << std::endl;
+      std::cout << "Rotation: " << std::endl;
+      std::cout << baseline.q() << std::endl;
+    }
+  }
 }
 
 }  // namespace
