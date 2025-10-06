@@ -14,6 +14,7 @@
 #include <aslam/cameras/GridDetector.hpp>
 #include <kalibr2/BasicMathUtils.hpp>
 #include <kalibr2/CalibrationTools.hpp>
+#include <kalibr2/CameraCalibrator.hpp>
 #include <kalibr2/CameraModels.hpp>
 #include <sm/kinematics/RotationVector.hpp>
 #include <sm/kinematics/Transformation.hpp>
@@ -40,51 +41,6 @@ boost::shared_ptr<aslam::backend::TransformationBasic> AddPoseDesignVariable(
   return boost::make_shared<aslam::backend::TransformationBasic>(q_Dv->toExpression(), t_Dv->toExpression());
 }
 
-/**  Add intrinsic design variables for the camera to the optimization problem.
- * The shutter is not active, following what the original kalibr code does.
- * - Projection - Active
- * - Distortion - Active
- * - Shutter - NOT Active
- * Deactivated variables are added to the problem object but
- * aren't taken into consideration for optimization.
- */
-template <typename CameraT>
-typename CameraT::DesignVariable AddIntrinsicDesignVariables(
-    boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
-    const boost::shared_ptr<aslam::cameras::CameraGeometryBase>& geometry) {
-  auto design_variable = typename CameraT::DesignVariable(geometry);
-  design_variable.setActive(true, true, false);
-  problem->addDesignVariable(design_variable.projectionDesignVariable());
-  problem->addDesignVariable(design_variable.distortionDesignVariable());
-  problem->addDesignVariable(design_variable.shutterDesignVariable());
-  return design_variable;
-}
-
-/**
- * Adds reprojection error terms for each observed point in a calibration target view to the optimization problem.
- *
- * This function iterates over all points in the provided calibration target and, for each valid observed image point,
- * constructs a reprojection error term using the provided camera model, transformation, and design variable. The error
- * term is then added to the optimization problem for use in calibration.
- */
-template <typename CameraT>
-void AddReprojectionErrorsForView(boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
-                                  const aslam::cameras::GridCalibrationTargetObservation observation,
-                                  const aslam::backend::TransformationExpression& T_cam_w,
-                                  const typename CameraT::DesignVariable& design_variable,
-                                  const boost::shared_ptr<aslam::cameras::GridCalibrationTargetBase>& target,
-                                  const Eigen::Matrix2d& invR) {
-  for (size_t i = 0; i < target->size(); ++i) {
-    auto p_target = aslam::backend::HomogeneousExpression(sm::kinematics::toHomogeneous(target->point(i)));
-    Eigen::Vector2d y;
-    bool valid = observation.imagePoint(i, y);
-    if (valid) {
-      auto rerr = boost::make_shared<typename CameraT::ReprojectionError>(y, invR, T_cam_w * p_target, design_variable);
-      problem->addErrorTerm(rerr);
-    }
-  }
-}
-
 /**
  * Create a default optimizer with the default settings used in the original
  * Kalibr code.
@@ -98,60 +54,6 @@ aslam::backend::Optimizer2 CreateDefaultOptimizer() {
   options.trustRegionPolicy = boost::make_shared<aslam::backend::LevenbergMarquardtTrustRegionPolicy>(10);
 
   return aslam::backend::Optimizer2(options);
-}
-
-template <typename CameraT>
-bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrationTargetObservation>& observations,
-                           const boost::shared_ptr<aslam::cameras::CameraGeometryBase>& geometry,
-                           const aslam::cameras::GridCalibrationTargetBase::Ptr& target,
-                           std::optional<double> fallback_focal_length) {
-  // Get an initial guess for the camera focal lenght, if it fails
-  // to initialize it from the observations it will fallback to the
-  // fallback_focal_length argument
-  bool success = geometry->initializeIntrinsics(observations, fallback_focal_length);
-
-  auto problem = boost::make_shared<aslam::calibration::OptimizationProblem>();
-  auto design_variable = AddIntrinsicDesignVariables<CameraT>(problem, geometry);
-
-  // Corner uncertainty
-  constexpr double corner_uncertainty = 1.0;
-  Eigen::Matrix2d R = Eigen::Matrix2d::Identity() * corner_uncertainty * corner_uncertainty;
-  Eigen::Matrix2d invR = R.inverse();
-
-  // It's required to capture the target_poses to prevent them from being
-  // destroyed before the optimizer runs. Because the optimizer doesn't handle
-  // the ownership of the design variables, we need to ensure
-  // they stay alive.
-  std::vector<boost::shared_ptr<aslam::backend::TransformationBasic>> target_pose_dvs;
-  for (const auto& observation : observations) {
-    // Estimate transformation from target to camera
-    sm::kinematics::Transformation T_t_c;
-    bool success = geometry->estimateTransformation(observation, T_t_c);
-    if (!success) {
-      SM_WARN("Failed to estimate transformation for observation.");
-      continue;
-    }
-
-    // Add the extrinsic design variables for this observation.
-    auto target_pose_dv = AddPoseDesignVariable(problem, T_t_c);
-    target_pose_dvs.push_back(target_pose_dv);
-
-    auto T_cam_w = target_pose_dv->toExpression().inverse();
-
-    // Add error terms for each point in the target
-    // taking into account all visible corners
-    // in each observation for optimization.
-    AddReprojectionErrorsForView<CameraT>(problem, observation, T_cam_w, design_variable, target, invR);
-  }
-
-  // The options of the optimizer
-  // TODO(frneer): Consider exposing this to the user so we can tune it for each
-  // Specific calibration if needed.
-  auto optimizer = CreateDefaultOptimizer();
-  optimizer.setProblem(problem);
-
-  auto retval = optimizer.optimize();
-  return !retval.linearSolverFailure;
 }
 
 /**
@@ -171,20 +73,74 @@ bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrationTarg
  * which defines the projection, distortion, and their design variables.
  * @param[in] observations A vector of observations of the calibration target. Each observation
  * corresponds to a single image/view.
- * @param[in,out] geometry The camera geometry model to be calibrated. Its initial state can provide a
- * starting point, and it will be updated with the final optimized parameters.
+ * @param[in,out] calibrator The camera calibrator instance that will be used for optimization.
  * @param[in] target A shared pointer to the GridCalibrationTarget object, defining the 3D structure
  * of the calibration pattern.
- * @param[in] fallback_focal_length An optional initial guess for the focal length to use if the
- * geometry cannot be initialized from the observations alone.
+ * @param[in] fallback_focal_length An optional fallback focal length to use if the camera intrinsics
+ * cannot be initialized from the observations.
  * @return true if the calibration and optimization were successful.
  * @return false if the optimization failed to converge or encountered a numerical issue.
  */
-template <typename CameraT>
-bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrationTargetObservation>& observations,
-                           const boost::shared_ptr<aslam::cameras::CameraGeometryBase>& geometry,
-                           const aslam::cameras::GridCalibrationTargetBase::Ptr& target) {
-  return CalibrateSingleCamera<CameraT>(observations, geometry, target, std::nullopt);
+inline bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrationTargetObservation>& observations,
+                                  const boost::shared_ptr<kalibr2::CameraCalibratorBase>& camera_calibrator,
+                                  const aslam::cameras::GridCalibrationTargetBase::Ptr& target,
+                                  std::optional<double> fallback_focal_length) {
+  // Get an initial guess for the camera focal lenght, if it fails
+  // to initialize it from the observations it will fallback to the
+  // fallback_focal_length argument
+  bool success = camera_calibrator->camera_geometry()->initializeIntrinsics(observations, fallback_focal_length);
+
+  auto problem = boost::make_shared<aslam::calibration::OptimizationProblem>();
+  camera_calibrator->AddIntrinsicDesignVariables(problem);
+
+  // Corner uncertainty
+  constexpr double corner_uncertainty = 1.0;
+  Eigen::Matrix2d R = Eigen::Matrix2d::Identity() * corner_uncertainty * corner_uncertainty;
+  Eigen::Matrix2d invR = R.inverse();
+
+  // It's required to capture the target_poses to prevent them from being
+  // destroyed before the optimizer runs. Because the optimizer doesn't handle
+  // the ownership of the design variables, we need to ensure
+  // they stay alive.
+  std::vector<boost::shared_ptr<aslam::backend::TransformationBasic>> target_pose_dvs;
+  for (const auto& observation : observations) {
+    // Estimate transformation from target to camera
+    sm::kinematics::Transformation T_t_c;
+    bool success = camera_calibrator->camera_geometry()->estimateTransformation(observation, T_t_c);
+    if (!success) {
+      SM_WARN("Failed to estimate transformation for observation.");
+      continue;
+    }
+
+    // Add the extrinsic design variables for this observation.
+    auto target_pose_dv = AddPoseDesignVariable(problem, T_t_c);
+    target_pose_dvs.push_back(target_pose_dv);
+
+    auto T_cam_w = target_pose_dv->toExpression().inverse();
+
+    // Add error terms for each point in the target
+    // taking into account all visible corners
+    // in each observation for optimization.
+    camera_calibrator->AddReprojectionErrorsForView(problem, observation, T_cam_w, target, invR);
+  }
+
+  // The options of the optimizer
+  // TODO(frneer): Consider exposing this to the user so we can tune it for each
+  // Specific calibration if needed.
+  auto optimizer = CreateDefaultOptimizer();
+  optimizer.setProblem(problem);
+
+  auto retval = optimizer.optimize();
+  return !retval.linearSolverFailure;
+}
+
+/**
+ * @brief Wrapper for CalibrateSingleCamera without fallback focal length.
+ */
+inline bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrationTargetObservation>& observations,
+                                  const boost::shared_ptr<kalibr2::CameraCalibratorBase>& calibrator,
+                                  const aslam::cameras::GridCalibrationTargetBase::Ptr& target) {
+  return CalibrateSingleCamera(observations, calibrator, target, std::nullopt);
 }
 
 /**
@@ -215,10 +171,9 @@ bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrationTarg
  * @throws std::runtime_error if the number of observations for the two cameras do not match, or if
  * the optimization's linear solver fails.
  */
-template <typename CameraLT, typename CameraHT>
-sm::kinematics::Transformation CalibrateStereoPair(
-    boost::shared_ptr<aslam::cameras::CameraGeometryBase> geometry_camera_L,
-    boost::shared_ptr<aslam::cameras::CameraGeometryBase> geometry_camera_H,
+inline sm::kinematics::Transformation CalibrateStereoPair(
+    boost::shared_ptr<kalibr2::CameraCalibratorBase> calibrator_L,
+    boost::shared_ptr<kalibr2::CameraCalibratorBase> calibrator_H,
     const std::vector<std::optional<aslam::cameras::GridCalibrationTargetObservation>>& observations_camera_L,
     const std::vector<std::optional<aslam::cameras::GridCalibrationTargetObservation>>& observations_camera_H,
     const aslam::cameras::GridCalibrationTargetBase::Ptr& target) {
@@ -236,12 +191,12 @@ sm::kinematics::Transformation CalibrateStereoPair(
       continue;  // Skip if either observation is not available
     }
 
-    auto success = geometry_camera_L->estimateTransformation(observations_camera_L[i].value(), T_L);
+    auto success = calibrator_L->camera_geometry()->estimateTransformation(observations_camera_L[i].value(), T_L);
     if (!success) {
       SM_ERROR_STREAM("Failed to estimate transformation for camera L at index " << i);
       continue;
     }
-    success = geometry_camera_H->estimateTransformation(observations_camera_H[i].value(), T_H);
+    success = calibrator_H->camera_geometry()->estimateTransformation(observations_camera_H[i].value(), T_H);
     if (!success) {
       SM_ERROR_STREAM("Failed to estimate transformation for camera H at index " << i);
       continue;
@@ -282,18 +237,20 @@ sm::kinematics::Transformation CalibrateStereoPair(
     // if the transform estimations are successful.
     // We kept that behavior for the time being.
     if (observations_camera_L[i].has_value()) {
-      geometry_camera_L->estimateTransformation(observations_camera_L[i].value(), T_L);
+      calibrator_L->camera_geometry()->estimateTransformation(observations_camera_L[i].value(), T_L);
     } else if (observations_camera_H[i].has_value()) {
-      geometry_camera_H->estimateTransformation(observations_camera_H[i].value(), T_H);
+      calibrator_H->camera_geometry()->estimateTransformation(observations_camera_H[i].value(), T_H);
       T_L = T_H * T_H_L_baseline.inverse();
+    } else {
+      continue;  // Skip if neither observation is available
     }
     auto target_pose_dv = kalibr2::tools::AddPoseDesignVariable(problem, T_L);
     target_pose_dvs.push_back(target_pose_dv);
   }
 
   // Add the intrinsic design variables for both cameras
-  auto design_variable_camera_L = kalibr2::tools::AddIntrinsicDesignVariables<CameraLT>(problem, geometry_camera_L);
-  auto design_variable_camera_H = kalibr2::tools::AddIntrinsicDesignVariables<CameraHT>(problem, geometry_camera_H);
+  calibrator_L->AddIntrinsicDesignVariables(problem);
+  calibrator_H->AddIntrinsicDesignVariables(problem);
 
   // Corner uncertainty
   constexpr double corner_uncertainty = 1.0;
@@ -306,8 +263,7 @@ sm::kinematics::Transformation CalibrateStereoPair(
       continue;  // Skip if observation is not available
     }
     auto T_cam_w = target_pose_dvs[i]->toExpression().inverse();
-    kalibr2::tools::AddReprojectionErrorsForView<CameraLT>(problem, observations_camera_L[i].value(), T_cam_w,
-                                                           design_variable_camera_L, target, invR);
+    calibrator_L->AddReprojectionErrorsForView(problem, observations_camera_L[i].value(), T_cam_w, target, invR);
   }
 
   // For camera H
@@ -316,8 +272,7 @@ sm::kinematics::Transformation CalibrateStereoPair(
       continue;  // Skip if observation is not available
     }
     auto T_cam_w = baseline_dv->toExpression() * target_pose_dvs[i]->toExpression().inverse();
-    kalibr2::tools::AddReprojectionErrorsForView<CameraHT>(problem, observations_camera_H[i].value(), T_cam_w,
-                                                           design_variable_camera_H, target, invR);
+    calibrator_H->AddReprojectionErrorsForView(problem, observations_camera_H[i].value(), T_cam_w, target, invR);
   }
 
   // The options of the optimizer
@@ -329,12 +284,121 @@ sm::kinematics::Transformation CalibrateStereoPair(
     std::runtime_error("Linear solver failed during optimization.");
   }
 
-  // Note (frneer): It doesn't seems right to use baseline_dv, here since it's not the actual optimized
-  // transformation from camera L to camera H....
   // Update the transformation with the optimized values
   auto baseline_HL = sm::kinematics::Transformation(baseline_dv->toExpression().toTransformationMatrix());
 
   return baseline_HL;
+}
+
+/**
+ * @brief Estimates the pose of the calibration target in the reference camera frame.
+ *
+ * This function selects the camera observation with the highest number of detected corners
+ * from a synchronized set of observations, estimates the transformation from the target to
+ * that camera, and then composes it with the baseline transformations to obtain the pose
+ * of the target in the reference (first) camera frame.
+ *
+ * @param calibrators Vector of shared pointers to camera calibrator objects, one for each camera.
+ * @param synced_set Synchronized set of optional grid calibration target observations, one per camera.
+ * @param baseline_guesses Vector of baseline transformations between consecutive cameras.
+ * @return sm::kinematics::Transformation The estimated transformation from the target to the reference camera frame.
+ */
+sm::kinematics::Transformation getTargetPoseGuess(
+    const std::vector<boost::shared_ptr<kalibr2::CameraCalibratorBase>>& calibrators, const SyncedSet& synced_set,
+    const std::vector<sm::kinematics::Transformation>& baseline_guesses) {
+  std::vector<size_t> n_corners;
+  std::transform(synced_set.begin(), synced_set.end(), std::back_inserter(n_corners),
+                 [](const std::optional<aslam::cameras::GridCalibrationTargetObservation>& obs) {
+                   if (!obs.has_value()) {
+                     return 0U;
+                   }
+                   std::vector<unsigned int> corners_idx;
+                   auto n_corners = obs.value().getCornersIdx(corners_idx);
+                   return n_corners;
+                 });
+  auto max_index = std::distance(n_corners.begin(), std::max_element(n_corners.begin(), n_corners.end()));
+  auto geometry = calibrators[max_index]->camera_geometry();
+  auto observation = synced_set[max_index];
+
+  auto T_t_cN = sm::kinematics::Transformation();
+  geometry->estimateTransformation(observation.value(), T_t_cN);
+
+  auto T_t_c0 = std::accumulate(baseline_guesses.begin(), baseline_guesses.begin() + max_index, T_t_cN,
+                                std::multiplies<sm::kinematics::Transformation>());
+
+  return T_t_c0;
+}
+
+// This function reproduces what solveFullBatch() does in the original python Kalibr code.
+/**
+ * @brief Calibrates a multi-camera rig using synchronized observations and initial baseline guesses.
+ *
+ * This function sets up and solves an optimization problem to calibrate the extrinsic transformations (baselines)
+ * between multiple cameras in a rig. It uses a set of camera calibrators, synchronized observation sets, a calibration
+ * target, and initial guesses for the baselines. The function adds intrinsic and extrinsic design variables, builds
+ * reprojection error terms for each observation, and optimizes the problem to refine the baseline transformations.
+ *
+ * @param calibrators Vector of shared pointers to camera calibrator objects, one for each camera in the rig.
+ * @param synced_observations Vector of synchronized observation sets, where each set contains optional observations
+ *        for each camera at a given time.
+ * @param target Shared pointer to the calibration target used for reprojection error computation.
+ * @param baseline_guesses Vector of initial guesses for the baseline transformations between cameras.
+ * @return std::vector<sm::kinematics::Transformation> The optimized baseline transformations between cameras.
+ *
+ * @throws std::runtime_error If the optimizer's linear solver fails during optimization.
+ */
+std::vector<sm::kinematics::Transformation> CalibrateMultiCameraRig(
+    const std::vector<boost::shared_ptr<kalibr2::CameraCalibratorBase>>& calibrators,
+    const std::vector<SyncedSet>& synced_observations, const aslam::cameras::GridCalibrationTargetBase::Ptr& target,
+    const std::vector<sm::kinematics::Transformation>& baseline_guesses) {
+  auto problem = boost::make_shared<aslam::calibration::OptimizationProblem>();
+  for (const auto& calibrator : calibrators) {
+    calibrator->AddIntrinsicDesignVariables(problem);
+  }
+
+  auto baseline_dvs = std::vector<boost::shared_ptr<aslam::backend::TransformationBasic>>();
+  std::transform(baseline_guesses.begin(), baseline_guesses.end(), std::back_inserter(baseline_dvs),
+                 [&problem](const sm::kinematics::Transformation& t) {
+                   return kalibr2::tools::AddPoseDesignVariable(problem, t);
+                 });
+
+  constexpr double corner_uncertainty = 1.0;
+  Eigen::Matrix2d R = Eigen::Matrix2d::Identity() * corner_uncertainty * corner_uncertainty;
+  Eigen::Matrix2d invR = R.inverse();
+
+  std::vector<boost::shared_ptr<aslam::backend::TransformationBasic>> target_pose_dvs;
+  for (const auto& synced_set : synced_observations) {
+    auto T0 = getTargetPoseGuess(calibrators, synced_set, baseline_guesses);
+    auto target_pose_dv = kalibr2::tools::AddPoseDesignVariable(problem, T0);
+    target_pose_dvs.push_back(target_pose_dv);
+    for (size_t i = 0; i < synced_set.size(); ++i) {
+      if (!synced_set[i].has_value()) {
+        continue;  // Skip if observation is not available
+      }
+      // Build pose chain (target->cam0->baselines->camN)
+      auto T_cam_w = target_pose_dv->toExpression().inverse();
+      for (size_t j = 0; j < i; ++j) {
+        T_cam_w = baseline_dvs[j]->toExpression() * T_cam_w;
+      }
+      // Add error terms
+      calibrators[i]->AddReprojectionErrorsForView(problem, synced_set[i].value(), T_cam_w, target, invR);
+    }
+  }
+
+  auto optimizer = CreateDefaultOptimizer();
+  optimizer.setProblem(problem);
+
+  auto retval = optimizer.optimize();
+  if (retval.linearSolverFailure) {
+    throw std::runtime_error("Linear solver failed during optimization.");
+  }
+
+  std::vector<sm::kinematics::Transformation> baselines;
+  std::transform(baseline_dvs.begin(), baseline_dvs.end(), std::back_inserter(baselines),
+                 [](const boost::shared_ptr<aslam::backend::TransformationBasic>& dv) {
+                   return sm::kinematics::Transformation(dv->toExpression().toTransformationMatrix());
+                 });
+  return baselines;
 }
 
 }  // namespace tools

@@ -41,5 +41,9 @@ std::map<KeyT, size_t> ToSizeMap(const std::map<KeyT, ValueT>& input_map) {
 }  // namespace detail
 
 Graph<size_t> BuildCameraGraph(const std::vector<SyncedSet> synced_sets);
+sm::kinematics::Transformation GetTransform(
+    const std::map<std::pair<size_t, size_t>, sm::kinematics::Transformation>& transformation_map,
+    const common_robotics_utilities::simple_graph_search::DijkstrasResult& result, size_t left_node_index,
+    size_t right_node_index);
 
 }  // namespace kalibr2

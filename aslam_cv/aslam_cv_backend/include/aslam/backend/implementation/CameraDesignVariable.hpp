@@ -12,21 +12,6 @@ namespace aslam {
 	}
 
 	template<typename CAMERA_T>
-	CameraDesignVariable<CAMERA_T>::CameraDesignVariable(const boost::shared_ptr<aslam::cameras::CameraGeometryBase> & camera)
-	{
-		// downcast the camera to the correct type
-		boost::shared_ptr<CAMERA_T> cam = boost::dynamic_pointer_cast<CAMERA_T>(camera);
-		if (!cam) {
-			throw Exception("CameraDesignVariable: Cannot downcast CameraGeometryBase to the specified camera type.");
-		}
-		_camera = cam;
-		// create the design variables:
-		_projectionDv.reset(new DesignVariableAdapter<projection_t>(&_camera->projection(), false));
-		_distortionDv.reset(new DesignVariableAdapter<distortion_t>(&((_camera->projection()).distortion()), false));
-		_shutterDv.reset(new DesignVariableAdapter<shutter_t>(&_camera->shutter(), false));
-	}
-
-	template<typename CAMERA_T>
 	CameraDesignVariable<CAMERA_T>::~CameraDesignVariable() {}
 
 	template<typename CAMERA_T>
