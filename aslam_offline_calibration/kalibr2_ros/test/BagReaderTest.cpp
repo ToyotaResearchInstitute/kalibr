@@ -204,6 +204,7 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
     bool success =
         kalibr2::tools::CalibrateSingleCamera(observations_by_camera.at(camera_id), camera_calibrators.at(camera_id),
                                               config.target, camera_config.focal_length);
+    ASSERT_TRUE(success) << "Failed to calibrate intrinsics from observations for camera ID: " << camera_id;
   }
 
   // | ---- Sync observations across cameras ----|

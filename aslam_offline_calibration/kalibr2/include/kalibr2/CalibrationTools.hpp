@@ -91,7 +91,6 @@ inline bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrat
   bool success = camera_calibrator->camera_geometry()->initializeIntrinsics(observations, fallback_focal_length);
 
   auto problem = boost::make_shared<aslam::calibration::OptimizationProblem>();
-  // auto design_variable = AddIntrinsicDesignVariables<CameraT>(problem, geometry);
   camera_calibrator->AddIntrinsicDesignVariables(problem);
 
   // Corner uncertainty
@@ -122,7 +121,6 @@ inline bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrat
     // Add error terms for each point in the target
     // taking into account all visible corners
     // in each observation for optimization.
-    // AddReprojectionErrorsForView<CameraT>(problem, observation, T_cam_w, design_variable, target, invR);
     camera_calibrator->AddReprojectionErrorsForView(problem, observation, T_cam_w, target, invR);
   }
 
@@ -311,13 +309,12 @@ sm::kinematics::Transformation getTargetPoseGuess(
   std::vector<size_t> n_corners;
   std::transform(synced_set.begin(), synced_set.end(), std::back_inserter(n_corners),
                  [](const std::optional<aslam::cameras::GridCalibrationTargetObservation>& obs) {
-                   if (obs.has_value()) {
-                     std::vector<unsigned int> corners_idx;
-                     auto n_corners = obs.value().getCornersIdx(corners_idx);
-                     return n_corners;
-                   } else {
+                   if (!obs.has_value()) {
                      return 0U;
                    }
+                   std::vector<unsigned int> corners_idx;
+                   auto n_corners = obs.value().getCornersIdx(corners_idx);
+                   return n_corners;
                  });
   auto max_index = std::distance(n_corners.begin(), std::max_element(n_corners.begin(), n_corners.end()));
   auto geometry = calibrators[max_index]->camera_geometry();

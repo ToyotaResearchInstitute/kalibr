@@ -127,6 +127,10 @@ sm::kinematics::Transformation GetTransform(
     const std::map<std::pair<size_t, size_t>, sm::kinematics::Transformation>& transformation_map,
     const common_robotics_utilities::simple_graph_search::DijkstrasResult& result, size_t left_node_index,
     size_t right_node_index) {
+  if (result.Size() < 2) {
+    throw std::runtime_error("Dijkstra result must contain at least two nodes to compute a transform.");
+  }
+
   auto distance_left_to_dijkstra_start = result.GetNodeDistance(left_node_index);
   auto distance_right_to_dijkstra_start = result.GetNodeDistance(right_node_index);
 
@@ -145,12 +149,9 @@ sm::kinematics::Transformation GetTransform(
   // and tore the transformations along the path.
   std::vector<sm::kinematics::Transformation> transformations;
   auto current_index = start_index;
-  while (true) {
+  while (current_index != end_index) {
     auto previous_index = result.GetPreviousIndex(current_index);
     transformations.push_back(transformation_map.at({current_index, previous_index}));
-    if (previous_index == end_index) {
-      break;
-    }
     current_index = previous_index;
   }
 
