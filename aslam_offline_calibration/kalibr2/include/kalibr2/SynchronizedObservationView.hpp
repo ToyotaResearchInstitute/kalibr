@@ -45,6 +45,7 @@ class SynchronizedObservationView {
     // Find the next synchronized set of observations across all sources
     // within the specified tolerance.
     void find_next_set();
+    std::optional<size_t> get_pivot_index() const;
 
     size_t n_sources_;
     aslam::Duration tolerance_;

@@ -93,4 +93,61 @@ TEST(SynchronizedObservationViewTest, TwoObservationsPerSyncedView) {
   ASSERT_EQ(round, n_observations * 1.5) << "Should have two observations per synced view";
 }
 
+TEST(SynchronizedObservationViewTest, AllWithinToleranceNonUniform) {
+  constexpr int n_rows = 5;
+  constexpr int n_cols = 7;
+  constexpr double spacing = 0.01;
+  const auto target_grid = boost::make_shared<aslam::cameras::GridCalibrationTargetCirclegrid>(n_rows, n_cols, spacing);
+  std::vector<aslam::cameras::GridCalibrationTargetObservation> observations;
+
+  constexpr size_t n_sources = 3;
+  constexpr size_t n_observations = 10;
+  std::array<std::vector<aslam::Time>, n_sources> timestamps;
+  aslam::Time start_time(1, 0);
+  for (size_t i = 0; i < n_observations; ++i) {
+    timestamps.at(0).push_back(start_time + aslam::Duration(0.1 * i));
+    timestamps.at(1).push_back(start_time + aslam::Duration(0.1 * i + 0.04));  // Offset by 0.04s
+    timestamps.at(2).push_back(start_time + aslam::Duration(0.1 * i - 0.03));  // Offset by -0.03s
+  }
+
+  std::vector<std::vector<aslam::cameras::GridCalibrationTargetObservation>> observations_by_source{n_sources};
+  for (size_t i = 0; i < n_sources; ++i) {
+    for (size_t j = 0; j < n_observations; ++j) {
+      // Create a dummy observation with the target grid.
+      aslam::cameras::GridCalibrationTargetObservation observation(target_grid);
+      observation.setTime(timestamps.at(i).at(j));
+      observations_by_source[i].push_back(observation);
+    }
+  }
+
+  // Add extra timestamps to the second source to make it non-uniform
+  timestamps.at(1).push_back(start_time + aslam::Duration(0.1 * 9 + 0.01));
+  auto observation_extra = aslam::cameras::GridCalibrationTargetObservation(target_grid);
+  observation_extra.setTime(timestamps.at(1).back());
+  observations_by_source[1].push_back(observation_extra);
+
+  // Print sizes for debugging
+  for (size_t i = 0; i < n_sources; ++i) {
+    std::cout << "Source " << i + 1 << " has " << observations_by_source[i].size() << " observations." << std::endl;
+  }
+
+  size_t round = 0;
+  aslam::Duration tolerance(0.07);
+  for (const auto& sync_set : kalibr2::SynchronizedObservationView(observations_by_source, tolerance)) {
+    std::cout << "\n--- Round " << ++round << " ---" << std::endl;
+    ASSERT_LE(round, observations_by_source[1].size())
+        << "Should not have more sync sets than the number of observations in the most observation-rich source";
+    for (size_t i = 0; i < sync_set.size(); ++i) {
+      std::cout << "  Source " << i + 1 << ": ";
+      if (sync_set[i].has_value()) {
+        std::cout << sync_set[i].value().time();
+      } else {
+        std::cout << "---";
+      }
+      std::cout << std::endl;
+    }
+  }
+  // ASSERT_EQ(round, n_observations) << "Should have iterated through all observations";
+}
+
 }  // namespace
