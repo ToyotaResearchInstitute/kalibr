@@ -34,6 +34,7 @@ class ImageReader {
  public:
   virtual Image ReadNext() = 0;
   virtual bool HasNext() const = 0;
+  virtual size_t MessageCount() = 0;
   virtual ~ImageReader() = default;
 };
 

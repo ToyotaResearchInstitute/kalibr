@@ -471,11 +471,13 @@ BatchProblemStruct CreateBatchProblem(
   Eigen::Matrix2d R = Eigen::Matrix2d::Identity() * corner_uncertainty * corner_uncertainty;
   Eigen::Matrix2d invR = R.inverse();
 
+  std::vector<std::vector<boost::shared_ptr<aslam::backend::ErrorTerm>>> reprojection_errors;
   for (size_t i = 0; i < synced_set.size(); ++i) {
     if (!synced_set[i].has_value()) {
       continue;  // Skip if observation is not available
     }
     // Build pose chain (target->cam0->baselines->camN)
+    // The multiplication here then uses the internals lhs to compute something and it's gone... FIx
     auto T_cam_w = T_tc_guess_dv->toExpression().inverse();
     for (size_t j = 0; j < i; ++j) {
       T_cam_w = baseline_dvs[j]->toExpression() * T_cam_w;
@@ -483,7 +485,8 @@ BatchProblemStruct CreateBatchProblem(
     // Add error terms
     // Note(frneer): Original code adds an optional error term using blake-zisserman.
     // As for now we have no evidence that is an used feature.
-    camera_calibrators[i]->AddReprojectionErrorsForView(problem, synced_set[i].value(), T_cam_w, target, invR);
+    camera_calibrators[i]->AddAndStoreReprojectionErrorsForView(problem, synced_set[i].value(), T_cam_w, landmark_dvs,
+                                                                invR);
   }
   auto batch_problem_struct = BatchProblemStruct();
   batch_problem_struct.problem = problem;

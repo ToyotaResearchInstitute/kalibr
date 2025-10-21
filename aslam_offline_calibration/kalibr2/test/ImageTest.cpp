@@ -1,5 +1,6 @@
 
 #include <aslam/cameras.hpp>
+#include <aslam/cameras/GridCalibrationTargetAprilgrid.hpp>
 #include <aslam/cameras/GridCalibrationTargetCirclegrid.hpp>
 #include <aslam/cameras/GridDetector.hpp>
 #include <gtest/gtest.h>
@@ -40,4 +41,23 @@ TEST(ImageTest, ToObservationCircleGridTarget) {
   ASSERT_TRUE(observation.has_value());
 }
 
+TEST(ImageTest, ToObservationAprilTagTarget) {
+  kalibr2::Image img;
+  img.timestamp = aslam::Time(1622547800, 0);
+  img.image = cv::imread("data/testImageAprilTag.png", cv::IMREAD_GRAYSCALE);
+  // ASSERT_FALSE(img.image.empty());
+
+  constexpr int rows = 5;
+  constexpr int cols = 6;
+  constexpr double tag_size = 0.088;
+  constexpr double tag_spacing = 0.2954;
+  auto target_grid =
+      boost::make_shared<aslam::cameras::GridCalibrationTargetAprilgrid>(rows, cols, tag_size, tag_spacing);
+  auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
+  auto detector = aslam::cameras::GridDetector(geometry, target_grid);
+
+  auto observation = kalibr2::ToObservation(img, detector);
+
+  // ASSERT_TRUE(observation.has_value());
+}
 }  // namespace

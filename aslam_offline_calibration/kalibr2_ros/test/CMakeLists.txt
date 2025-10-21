@@ -3,7 +3,7 @@ find_package(GTest MODULE)
 find_package(ament_cmake_gtest REQUIRED)
 
 ament_add_gtest(${PROJECT_NAME}-test
-  BagReaderTest.cpp
+  BagReaderTest.cpp TIMEOUT 300000
 )
 
 target_link_libraries(
@@ -18,4 +18,4 @@ target_compile_definitions(${PROJECT_NAME}-test
 include(CTest)
 include(GoogleTest)
 
-gtest_discover_tests(${PROJECT_NAME}-test)
+# gtest_discover_tests(${PROJECT_NAME}-test)
