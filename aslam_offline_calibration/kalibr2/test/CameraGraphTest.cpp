@@ -56,7 +56,7 @@ TEST(CameraGraphTest, FromCommonCornersToGraph) {
   // And build the graph from them.
   std::vector<SyncedSetCorners> corners_per_set;
   corners_per_set.push_back({{1, 2, 3}, {1, 3, 4, 6}, {2, 4, 6}});
-  corners_per_set.push_back({{1, 3}, {2, 4, 6}, {1, 4, 6}});
+  corners_per_set.push_back({{1, 3, 5}, {2, 4, 6}, {1, 4, 5, 6}});
 
   std::vector<std::map<std::pair<size_t, size_t>, kalibr2::Corners>> common_corners_map;
   std::transform(corners_per_set.begin(), corners_per_set.end(), std::back_inserter(common_corners_map),
@@ -71,7 +71,7 @@ TEST(CameraGraphTest, FromCommonCornersToGraph) {
   ASSERT_EQ(common_corners_map.at(0).at({1, 2}), (kalibr2::Corners{4, 6}));
 
   ASSERT_EQ(common_corners_map.at(1).at({0, 1}), (kalibr2::Corners{}));
-  ASSERT_EQ(common_corners_map.at(1).at({0, 2}), (kalibr2::Corners{1}));
+  ASSERT_EQ(common_corners_map.at(1).at({0, 2}), (kalibr2::Corners{1, 5}));
   ASSERT_EQ(common_corners_map.at(1).at({1, 2}), (kalibr2::Corners{4, 6}));
 
   std::vector<std::map<std::pair<size_t, size_t>, size_t>> common_corners_size_map;
@@ -86,7 +86,7 @@ TEST(CameraGraphTest, FromCommonCornersToGraph) {
   ASSERT_EQ(common_corners_size_map.at(0).at({1, 2}), 2);
 
   ASSERT_EQ(common_corners_size_map.at(1).at({0, 1}), 0);
-  ASSERT_EQ(common_corners_size_map.at(1).at({0, 2}), 1);
+  ASSERT_EQ(common_corners_size_map.at(1).at({0, 2}), 2);
   ASSERT_EQ(common_corners_size_map.at(1).at({1, 2}), 2);
 
   std::map<std::pair<size_t, size_t>, size_t> common_corners_size_accumulated_map;
@@ -98,7 +98,7 @@ TEST(CameraGraphTest, FromCommonCornersToGraph) {
 
   ASSERT_EQ(common_corners_size_accumulated_map.size(), 3) << "Should have three unique pairs of sources";
   ASSERT_EQ(common_corners_size_accumulated_map.at({0, 1}), 2);
-  ASSERT_EQ(common_corners_size_accumulated_map.at({0, 2}), 2);
+  ASSERT_EQ(common_corners_size_accumulated_map.at({0, 2}), 3);
   ASSERT_EQ(common_corners_size_accumulated_map.at({1, 2}), 4);
 
   common_robotics_utilities::simple_graph::Graph<size_t> graph{};
@@ -110,6 +110,21 @@ TEST(CameraGraphTest, FromCommonCornersToGraph) {
     if (n_shared_observations > 0) {
       // Abussing that idx is equal to node value.
       graph.AddEdgesBetweenNodes(camera_pair.first, camera_pair.second, 1.0 / n_shared_observations);
+    }
+  }
+
+  constexpr size_t start_node = 0;
+  common_robotics_utilities::simple_graph_search::DijkstrasResult result =
+      common_robotics_utilities::simple_graph_search::PerformDijkstrasAlgorithm(graph, start_node);
+
+  for (size_t i = 0; i < corners_per_set.at(0).size(); ++i) {
+    if (i == start_node) {
+      continue;  // Skip the start node
+    } else {
+      auto best_camera_pair = result.GetPreviousIndex(i);
+      std::cout << "Best pair for camera " << i << ": " << best_camera_pair << std::endl;
+      std::cout << "Distance to camera " << i << ": " << result.GetNodeDistance(i) << std::endl;
+      // Stereo calibrate pair
     }
   }
 }

@@ -2,6 +2,7 @@
 #include <aslam/cameras/GridDetector.hpp>
 #include <gtest/gtest.h>
 #include <kalibr2/CalibrationTools.hpp>
+#include <kalibr2/CameraCalibrator.hpp>
 #include <kalibr2/CameraGraph.hpp>
 #include <kalibr2/CameraModels.hpp>
 #include <kalibr2/Image.hpp>
@@ -100,7 +101,7 @@ TEST_F(BagReaderTestFixture, DISABLED_CanDetectMultipleImagesSingleTopic) {
   }
 }
 
-TEST_F(BagReaderTestFixture, DISABLED_Integration) {
+TEST_F(BagReaderTestFixture, Integration) {
   auto reader = kalibr2::ros::BagImageReaderFactory::create(bag_path, topic);
 
   constexpr int rows = 5;
@@ -109,8 +110,8 @@ TEST_F(BagReaderTestFixture, DISABLED_Integration) {
   constexpr double tag_spacing = 0.2954;
   auto target_grid =
       boost::make_shared<aslam::cameras::GridCalibrationTargetAprilgrid>(rows, cols, tag_size, tag_spacing);
-  auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
-  auto detector = aslam::cameras::GridDetector(geometry, target_grid);
+  auto calibrator = boost::make_shared<kalibr2::CameraCalibrator<kalibr2::models::DistortedPinhole>>();
+  auto detector = aslam::cameras::GridDetector(calibrator->camera_geometry(), target_grid);
 
   constexpr size_t min_num_observation = 10;
   std::vector<aslam::cameras::GridCalibrationTargetObservation> observations;
@@ -134,8 +135,7 @@ TEST_F(BagReaderTestFixture, DISABLED_Integration) {
   }
 
   constexpr double focal_length = 881.0;
-  bool success = kalibr2::tools::CalibrateIntrinsics<kalibr2::models::DistortedPinhole>(observations, geometry,
-                                                                                        detector, focal_length);
+  bool success = kalibr2::tools::CalibrateSingleCamera(observations, calibrator, target_grid, focal_length);
 
   ASSERT_TRUE(success) << "Failed to calibrate intrinsics from observations";
 }
@@ -161,14 +161,19 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
   config.cameras.emplace_back(CameraConfig{kalibr2::ros::BagImageReaderFactory::create(bag_path, "/BFS_25037058/image"),
                                            "DistortedPinhole", 881.0});
 
+  std::vector<boost::shared_ptr<kalibr2::CameraCalibratorBase>> camera_calibrators;
+  for (const auto& camera_config : config.cameras) {
+    auto calibrator = boost::make_shared<kalibr2::CameraCalibrator<kalibr2::models::DistortedPinhole>>();
+    camera_calibrators.push_back(calibrator);
+  }
+
   // |---- Extract observations for each camera ----|
   std::vector<std::vector<aslam::cameras::GridCalibrationTargetObservation>> observations_by_camera;
   observations_by_camera.resize(config.cameras.size());
 
   for (size_t camera_id = 0; camera_id < config.cameras.size(); ++camera_id) {
     const auto& camera_config = config.cameras.at(camera_id);
-    auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
-    auto detector = aslam::cameras::GridDetector(geometry, config.target);
+    auto detector = aslam::cameras::GridDetector(camera_calibrators.at(camera_id)->camera_geometry(), config.target);
     auto max_observations = 10;
     auto observations = 0;
 
@@ -195,10 +200,11 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
   // |---- Get initial intrinsic guess for each camera ----|
   for (size_t camera_id = 0; camera_id < config.cameras.size(); ++camera_id) {
     const auto& camera_config = config.cameras.at(camera_id);
-    auto geometry = boost::make_shared<kalibr2::models::DistortedPinhole::Geometry>();
-    auto detector = aslam::cameras::GridDetector(geometry, config.target);
-    bool success = kalibr2::tools::CalibrateIntrinsics<kalibr2::models::DistortedPinhole>(
-        observations_by_camera.at(camera_id), geometry, detector, camera_config.focal_length);
+    auto detector = aslam::cameras::GridDetector(camera_calibrators.at(camera_id)->camera_geometry(), config.target);
+    bool success =
+        kalibr2::tools::CalibrateSingleCamera(observations_by_camera.at(camera_id), camera_calibrators.at(camera_id),
+                                              config.target, camera_config.focal_length);
+    ASSERT_TRUE(success) << "Failed to calibrate intrinsics from observations for camera ID: " << camera_id;
   }
 
   // | ---- Sync observations across cameras ----|
@@ -218,6 +224,62 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
 
   // | ---- Build Graph ----|
   auto graph = kalibr2::BuildCameraGraph(synced_sets);
+
+  // | ---- Perform Dijkstra's Algorithm ----|
+  constexpr size_t start_node_idx = 0;
+  common_robotics_utilities::simple_graph_search::DijkstrasResult result =
+      common_robotics_utilities::simple_graph_search::PerformDijkstrasAlgorithm(graph, start_node_idx);
+
+  // | ---- Stereo Calibration Best Pairs ----|
+  std::map<std::pair<size_t, size_t>, sm::kinematics::Transformation> optimal_baselines;
+  for (size_t i = 0; i < config.cameras.size(); ++i) {
+    if (i == start_node_idx) {
+      continue;  // Skip the start node
+    } else {
+      auto best_camera_pair = result.GetPreviousIndex(i);
+      std::cout << "Best pair for camera " << i << ": " << best_camera_pair << std::endl;
+      std::cout << "Distance to camera " << i << ": " << result.GetNodeDistance(i) << std::endl;
+      // Stereo calibrate pair
+      auto tf = kalibr2::tools::CalibrateStereoPair(
+          camera_calibrators.at(i), camera_calibrators.at(best_camera_pair),
+          kalibr2::GetAllObservationsFromSource(synced_sets, i),
+          kalibr2::GetAllObservationsFromSource(synced_sets, best_camera_pair), config.target);
+      optimal_baselines[{i, best_camera_pair}] = tf;
+    }
+  }
+
+  for (size_t i = 0; i < config.cameras.size() - 1; ++i) {
+    std::cout << "Checking for transform between camera " << i << " and " << i + 1 << std::endl;
+    // If the transform is already in the map, continue
+    auto tf_it = optimal_baselines.find({i, i + 1});
+    if (tf_it != optimal_baselines.end()) {
+      std::cout << "Transform already exists between camera " << i << " and " << i + 1 << std::endl;
+      continue;
+    }
+
+    // If the inverse transform is in the map, add the inverse and continue
+    tf_it = optimal_baselines.find({i + 1, i});
+    if (tf_it != optimal_baselines.end()) {
+      std::cout << "Inverse transform found between camera " << i + 1 << " and " << i << std::endl;
+      optimal_baselines[{i, i + 1}] = tf_it->second.inverse();
+      continue;
+    }
+
+    // Otherwise, compute the transform using Dijkstra's result
+    auto tf = kalibr2::GetTransform(optimal_baselines, result, i, i + 1);
+    optimal_baselines[{i, i + 1}] = tf;
+  }
+
+  std::vector<sm::kinematics::Transformation> baseline_guesses;
+  for (size_t i = 0; i < config.cameras.size() - 1; ++i) {
+    auto tf_it = optimal_baselines.find({i, i + 1});
+    ASSERT_TRUE(tf_it != optimal_baselines.end()) << "No transform found for camera pair: " << i << " and " << i + 1;
+    baseline_guesses.push_back(tf_it->second);
+  }
+
+  // | ---- Refine guess in full batch optimization ----|
+  auto baselines =
+      kalibr2::tools::CalibrateMultiCameraRig(camera_calibrators, synced_sets, config.target, baseline_guesses);
 }
 
 }  // namespace

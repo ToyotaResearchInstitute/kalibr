@@ -11,6 +11,7 @@
 namespace kalibr2 {
 
 using aslam::cameras::GridCalibrationTargetObservation;
+using SyncedSet = std::vector<std::optional<GridCalibrationTargetObservation>>;
 
 class SynchronizedObservationView {
   // A class to synchronize observations from multiple sources based on timestamps
@@ -66,5 +67,19 @@ class SynchronizedObservationView {
   // timestamp difference must be within [-tolerance, +tolerance].
   aslam::Duration tolerance_;
 };
+
+/**
+ * @brief Retrieves all observations from a specific source index across a collection of synchronized sets.
+ *
+ * This function iterates over a vector of synchronized observation sets and extracts the observation
+ * at the specified source index from each set. The result is a vector containing the observations,
+ * where each observation is represented as an optional value (it may be empty if the observation is missing).
+ *
+ * @param sets A vector of synchronized observation sets, where each set contains observations from multiple sources.
+ * @param source_index The index of the source whose observations are to be retrieved from each set.
+ * @return A vector of optional GridCalibrationTargetObservation objects, one for each set.
+ */
+std::vector<std::optional<aslam::cameras::GridCalibrationTargetObservation>> GetAllObservationsFromSource(
+    const std::vector<kalibr2::SyncedSet>& sets, size_t source_index);
 
 }  // namespace kalibr2
