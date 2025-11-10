@@ -99,12 +99,7 @@ bool GridDetector::findTargetNoTransformation(const cv::Mat & image, const aslam
   Eigen::MatrixXd cornerPoints;
   std::vector<bool> validCorners;
 
-  // time computeObservation using std::chrono
-  auto t0 = std::chrono::high_resolution_clock::now();
   success = _target->computeObservation(image, cornerPoints, validCorners);
-  auto t1 = std::chrono::high_resolution_clock::now();
-  double compute_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-  std::cout << "computeObservation took " << compute_ms << " ms" << std::endl;
 
   // Set the image, target, and timestamp regardless of success.
   outObservation.setTarget(_target);
@@ -112,14 +107,10 @@ bool GridDetector::findTargetNoTransformation(const cv::Mat & image, const aslam
   outObservation.setTime(stamp);
 
   // time the loop that updates observed corners
-  auto t2 = std::chrono::high_resolution_clock::now();
   for (int i = 0; i < cornerPoints.rows(); ++i) {
     if (i < static_cast<int>(validCorners.size()) && validCorners[i])
       outObservation.updateImagePoint(i, cornerPoints.row(i).transpose());
   }
-  auto t3 = std::chrono::high_resolution_clock::now();
-  double loop_ms = std::chrono::duration<double, std::milli>(t3 - t2).count();
-  std::cout << "corner update loop took " << loop_ms << " ms" << std::endl;
 
   return success;
 }

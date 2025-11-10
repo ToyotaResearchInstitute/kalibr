@@ -1,4 +1,5 @@
 #include <aslam/cameras/GridCalibrationTargetAprilgrid.hpp>
+#include <aslam/cameras/GridCalibrationTargetAprilgridv2.hpp>
 #include <aslam/cameras/GridDetector.hpp>
 #include <gtest/gtest.h>
 #include <kalibr2/CalibrationTools.hpp>
@@ -111,73 +112,23 @@ std::vector<aslam::cameras::GridCalibrationTargetObservation> get_observations_f
   const size_t message_count = reader.MessageCount();
   size_t images_processed = 0;
 
-  double total_readnext_ms = 0.0;
-  double total_toobs_ms = 0.0;
-  size_t readnext_calls = 0;
-  size_t toobs_calls = 0;
-
   while (reader.HasNext()) {
-    auto iter_start = std::chrono::steady_clock::now();
-
-    // Time ReadNext()
-    auto t_read_start = std::chrono::steady_clock::now();
     kalibr2::Image img = reader.ReadNext();
-    auto t_read_end = std::chrono::steady_clock::now();
-    readnext_calls++;
-    double readnext_ms =
-        std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(t_read_end - t_read_start).count();
-    total_readnext_ms += readnext_ms;
-
-    images_processed++;
-
-    // Time ToObservation()
-    auto t_obs_start = std::chrono::steady_clock::now();
     auto observation = kalibr2::ToObservation(img, detector);
-    auto t_obs_end = std::chrono::steady_clock::now();
-    toobs_calls++;
-    double toobs_ms =
-        std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(t_obs_end - t_obs_start).count();
-    total_toobs_ms += toobs_ms;
 
     if (observation.has_value()) {
       observations.push_back(observation.value());
       if (observations.size() >= min_num_observations) {
         std::cout << "Enough observations collected" << std::endl;
-        auto iter_end = std::chrono::steady_clock::now();
-        double iter_elapsed_ms =
-            std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(iter_end - iter_start).count();
-        std::cout << "Iteration took " << iter_elapsed_ms << " ms"
-                  << " (ReadNext: " << readnext_ms << " ms, ToObservation: " << toobs_ms << " ms)" << std::endl;
         break;  // Stop after collecting enough observations
       }
     }
-
-    auto iter_end = std::chrono::steady_clock::now();
-    double iter_elapsed_ms =
-        std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(iter_end - iter_start).count();
-
-    std::cout << "Processed " << images_processed << " / " << message_count << " images\r"
-              << "collected " << observations.size() << " observations. "
-              << "Iteration took " << iter_elapsed_ms << " ms"
-              << " (ReadNext: " << readnext_ms << " ms, ToObservation: " << toobs_ms << " ms)" << std::endl;
-  }
-
-  // Summary timings
-  if (readnext_calls > 0 || toobs_calls > 0) {
-    double avg_readnext = readnext_calls ? (total_readnext_ms / static_cast<double>(readnext_calls)) : 0.0;
-    double avg_toobs = toobs_calls ? (total_toobs_ms / static_cast<double>(toobs_calls)) : 0.0;
-    std::cout << "Summary: processed " << images_processed << " images, collected " << observations.size()
-              << " observations." << std::endl;
-    std::cout << "ReadNext() called " << readnext_calls << " times, avg = " << avg_readnext
-              << " ms, total = " << total_readnext_ms << " ms" << std::endl;
-    std::cout << "ToObservation() called " << toobs_calls << " times, avg = " << avg_toobs
-              << " ms, total = " << total_toobs_ms << " ms" << std::endl;
   }
 
   return observations;
 }
 
-TEST_F(BagReaderTestFixture, ProfileCameraReading) {
+TEST_F(BagReaderTestFixture, DISABLED_ProfileCameraReading) {
   auto reader = kalibr2::ros::BagImageReaderFactory::create(bag_path, topic);
 
   constexpr int rows = 5;
@@ -278,10 +229,13 @@ TEST_F(BagReaderTestFixture, DISABLED_MultiThreadReading) {
   }
 }
 
-TEST_F(BagReaderTestFixture, DISABLED_IntegrationMultipleCameras) {
+TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
   // | --- User side setup --- |
   CalibrationConfig config;
-  config.target = std::make_unique<aslam::cameras::GridCalibrationTargetAprilgrid>(5, 6, 0.088, 0.2954);
+  auto target_options = aslam::cameras::GridCalibrationTargetAprilgridv2::AprilgridOptionsv2();
+  target_options.detectorParameters->markerBorderBits = 2;
+  config.target =
+      std::make_unique<aslam::cameras::GridCalibrationTargetAprilgridv2>(5, 6, 0.088, 0.2954, target_options);
   config.cameras.emplace_back(CameraConfig{kalibr2::ros::BagImageReaderFactory::create(bag_path, "/BFS_25037058/image"),
                                            "DistortedPinhole", 881.0});
   config.cameras.emplace_back(CameraConfig{kalibr2::ros::BagImageReaderFactory::create(bag_path, "/BFS_25037070/image"),
@@ -298,7 +252,8 @@ TEST_F(BagReaderTestFixture, DISABLED_IntegrationMultipleCameras) {
   observations_by_camera.resize(config.cameras.size());
 
   // Use multithreading to fill observations_by_camera in parallel (same pattern as MultiThreadReading).
-  const size_t max_observations = 20000;
+  // const size_t max_observations = 20000;
+  const size_t max_observations = 300000;
   std::vector<std::thread> threads;
   threads.reserve(config.cameras.size());
 

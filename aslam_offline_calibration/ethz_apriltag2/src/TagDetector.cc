@@ -36,7 +36,6 @@ using namespace std;
 namespace AprilTags {
 
   std::vector<TagDetection> TagDetector::extractTags(const cv::Mat& image) {
-    auto t_init_step = std::chrono::high_resolution_clock::now();
     // convert to internal AprilTags image (todo: slow, change internally to OpenCV)
     int width = image.cols;
     int height = image.rows;
@@ -93,12 +92,8 @@ namespace AprilTags {
   }
 #endif
 #endif
-  auto t_init_step_end = std::chrono::high_resolution_clock::now();
-  double t_init_step_ms = std::chrono::duration<double, std::milli>(t_init_step_end - t_init_step).count();
-  std::cout << "AprilTag init step took " << t_init_step_ms << " ms" << std::endl;
   //================================================================
   // Step one: preprocess image (convert to grayscale) and low pass if necessary
-  auto t_step_1 = std::chrono::high_resolution_clock::now();
   FloatImage fim = fimOrig;
 
   //! Gaussian smoothing kernel applied to image (0 == no filter).
@@ -125,15 +120,11 @@ namespace AprilTags {
     std::vector<float> filt = Gaussian::makeGaussianFilter(sigma, filtsz);
     fim.filterFactoredCentered(filt, filt);
   }
-  auto t_step_1_end = std::chrono::high_resolution_clock::now();
-  double t_step_1_ms = std::chrono::duration<double, std::milli>(t_step_1_end - t_step_1).count();
-  std::cout << "step one took " << t_step_1_ms << " ms" << std::endl;
   //================================================================
   // Step two: Compute the local gradient. We store the direction and magnitude.
   // This step is quite sensitve to noise, since a few bad theta estimates will
   // break up segments, causing us to miss Quads. It is useful to do a Gaussian
   // low pass on this step even if we don't want it for encoding.
-  auto t_step_2 = std::chrono::high_resolution_clock::now();
   FloatImage fimSeg;
   if (segSigma > 0) {
     if (segSigma == sigma) {
@@ -191,14 +182,10 @@ namespace AprilTags {
     }
   }
 #endif
-  auto t_step_2_end = std::chrono::high_resolution_clock::now();
-  double t_step_2_ms = std::chrono::duration<double, std::milli>(t_step_2_end - t_step_2).count();
-  std::cout << "step two took " << t_step_2_ms << " ms" << std::endl;
   //================================================================
   // Step three. Extract edges by grouping pixels with similar
   // thetas together. This is a greedy algorithm: we start with
   // the most similar pixels.  We use 4-connectivity.
-  auto t_step_3 = std::chrono::high_resolution_clock::now();
   UnionFindSimple uf(fimSeg.getWidth()*fimSeg.getHeight());
 
   vector<Edge> edges(width*height*4);
@@ -242,14 +229,10 @@ namespace AprilTags {
     std::stable_sort(edges.begin(), edges.end());
     Edge::mergeEdges(edges,uf,tmin,tmax,mmin,mmax);
   }
-  auto t_step_3_end = std::chrono::high_resolution_clock::now();
-  double step_3_ms = std::chrono::duration<double, std::milli>(t_step_3_end - t_step_3).count();
-  std::cout << "step three took " << step_3_ms << " ms" << std::endl;
 
   //================================================================
   // Step four: Loop over the pixels again, collecting statistics for each cluster.
   // We will soon fit lines (segments) to these points.
-  auto t_step_4 = std::chrono::high_resolution_clock::now();
   map<int, vector<XYWeight> > clusters;
   for (int y = 0; y+1 < fimSeg.getHeight(); y++) {
     for (int x = 0; x+1 < fimSeg.getWidth(); x++) {
@@ -267,13 +250,9 @@ namespace AprilTags {
       points.push_back(XYWeight(x,y,fimMag.get(x,y)));
     }
   }
-  auto t_step_4_end = std::chrono::high_resolution_clock::now();
-  double step_4_ms = std::chrono::duration<double, std::milli>(t_step_4_end - t_step_4).count();
-  std::cout << "step four took " << step_4_ms << " ms" << std::endl;
 
   //================================================================
   // Step five: Loop over the clusters, fitting lines (which we call Segments).
-  auto t_step_5 = std::chrono::high_resolution_clock::now();
   std::vector<Segment> segments; //used in Step six
   std::map<int, std::vector<XYWeight> >::const_iterator clustersItr;
   for (clustersItr = clusters.begin(); clustersItr != clusters.end(); clustersItr++) {
@@ -349,13 +328,9 @@ namespace AprilTags {
   }
 #endif
 #endif
-  auto t_step_5_end = std::chrono::high_resolution_clock::now();
-  double t_step_5_ms = std::chrono::duration<double, std::milli>(t_step_5_end - t_step_5).count();
-  std::cout << "step five took " << t_step_5_ms << " ms" << std::endl;
   // Step six: For each segment, find segments that begin where this segment ends.
   // (We will chain segments together next...) The gridder accelerates the search by
   // building (essentially) a 2D hash table.
-  auto t_step_6 = std::chrono::high_resolution_clock::now();
   Gridder<Segment> gridder(0,0,width,height,10);
 
   // add every segment to the hash table according to the position of the segment's
@@ -401,13 +376,9 @@ namespace AprilTags {
       parentseg.children.push_back(&child);
     }
   }
-  auto t_step_6_end = std::chrono::high_resolution_clock::now();
-  double t_step_6_ms = std::chrono::duration<double, std::milli>(t_step_6_end - t_step_6).count();
-  std::cout << "step six took " << t_step_6_ms << " ms" << std::endl;
   //================================================================
   // Step seven: Search all connected segments to see if any form a loop of length 4.
   // Add those to the quads list.
-  auto t_step_7 = std::chrono::high_resolution_clock::now();
   vector<Quad> quads;
 
   vector<Segment*> tmp(5);
@@ -415,9 +386,6 @@ namespace AprilTags {
     tmp[0] = &segments[i];
     Quad::search(fimOrig, tmp, segments[i], 0, quads, opticalCenter);
   }
-  auto t_step_7_end = std::chrono::high_resolution_clock::now();
-  double t_step_7_ms = std::chrono::duration<double, std::milli>(t_step_7_end - t_step_7).count();
-  std::cout << "step seven took " << t_step_7_ms << " ms" << std::endl;
 
 #ifdef DEBUG_APRIL
   {
@@ -449,7 +417,6 @@ namespace AprilTags {
   // Step eight. Decode the quads. For each quad, we first estimate a
   // threshold color to decide between 0 and 1. Then, we read off the
   // bits and see if they make sense.
-  auto t_step_8 = std::chrono::high_resolution_clock::now();
   std::vector<TagDetection> detections;
 
   for (unsigned int qi = 0; qi < quads.size(); qi++ ) {
@@ -557,9 +524,6 @@ namespace AprilTags {
     cv::imshow("debug_april", image);
   }
 #endif
-  auto t_step_8_end = std::chrono::high_resolution_clock::now();
-  double t_step_8_ms = std::chrono::duration<double, std::milli>(t_step_8_end - t_step_8).count();
-  std::cout << "step eight took " << t_step_8_ms << " ms" << std::endl;
 
   //================================================================
   //Step nine: Some quads may be detected more than once, due to
@@ -567,7 +531,6 @@ namespace AprilTags {
   //broken lines. When two quads (with the same id) overlap, we will
   //keep the one with the lowest error, and if the error is the same,
   //the one with the greatest observed perimeter.
-  auto t_step_9 = std::chrono::high_resolution_clock::now();
   std::vector<TagDetection> goodDetections;
 
   // NOTE: allow multiple non-overlapping detections of the same target.
@@ -605,9 +568,6 @@ namespace AprilTags {
 
   //cout << "AprilTags: edges=" << nEdges << " clusters=" << clusters.size() << " segments=" << segments.size()
   //     << " quads=" << quads.size() << " detections=" << detections.size() << " unique tags=" << goodDetections.size() << endl;
-  auto t_step_9_end = std::chrono::high_resolution_clock::now();
-  double t_step_9_ms = std::chrono::duration<double, std::milli>(t_step_9_end - t_step_9).count();
-  std::cout << "step nine took " << t_step_9_ms << " ms" << std::endl;
   return goodDetections;
 }
 

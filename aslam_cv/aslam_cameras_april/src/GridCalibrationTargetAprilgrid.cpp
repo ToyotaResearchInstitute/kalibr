@@ -103,11 +103,7 @@ bool GridCalibrationTargetAprilgrid::computeObservation(
   bool success = true;
 
   // detect the tags
-  auto t0 = std::chrono::high_resolution_clock::now();
   std::vector<AprilTags::TagDetection> detections = _tagDetector->extractTags(image);
-  auto t1 = std::chrono::high_resolution_clock::now();
-  double detect_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-  std::cout << "AprilTag detection took " << detect_ms << " ms" << std::endl;
 
   /* handle the case in which a tag is identified but not all tag
    * corners are in the image (all data bits in image but border

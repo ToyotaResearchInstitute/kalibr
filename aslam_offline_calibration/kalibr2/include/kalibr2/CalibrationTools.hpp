@@ -315,6 +315,18 @@ inline sm::kinematics::Transformation CalibrateStereoPair(
 sm::kinematics::Transformation getTargetPoseGuess(
     const std::vector<boost::shared_ptr<kalibr2::CameraCalibratorBase>>& calibrators, const SyncedSet& synced_set,
     const std::vector<sm::kinematics::Transformation>& baseline_guesses) {
+  // assert(calibrators.size() == synced_set.size());
+
+  // // Assert that t least there's a valid observation in the synced set
+  // bool has_valid_observation = std::any_of(synced_set.begin(), synced_set.end(),
+  //                                      [](const std::optional<aslam::cameras::GridCalibrationTargetObservation>& obs)
+  //                                      {
+  //                                        return obs.has_value();
+  //                                      });
+  // if (!has_valid_observation) {
+  //   throw std::runtime_error("No valid observations in the synchronized set.");
+  // }
+
   std::vector<size_t> n_corners;
   std::transform(synced_set.begin(), synced_set.end(), std::back_inserter(n_corners),
                  [](const std::optional<aslam::cameras::GridCalibrationTargetObservation>& obs) {
@@ -326,10 +338,15 @@ sm::kinematics::Transformation getTargetPoseGuess(
                    return n_corners;
                  });
   auto max_index = std::distance(n_corners.begin(), std::max_element(n_corners.begin(), n_corners.end()));
-  auto geometry = calibrators[max_index]->camera_geometry();
-  auto observation = synced_set[max_index];
+  auto geometry = calibrators.at(max_index)->camera_geometry();
+  auto observation = synced_set.at(max_index);
 
   auto T_t_cN = sm::kinematics::Transformation();
+  // if (!observation.has_value()) {
+  //   auto max_corners = n_corners.at(max_index);
+  //   std::cout << "Max corners found: " << max_corners << " for camera index " << max_index << std::endl;
+  //   throw std::runtime_error("No observation available for the camera with the most corners.");
+  // }
   geometry->estimateTransformation(observation.value(), T_t_cN);
 
   auto T_t_c0 = std::accumulate(baseline_guesses.begin(), baseline_guesses.begin() + max_index, T_t_cN,
@@ -477,7 +494,6 @@ BatchProblemStruct CreateBatchProblem(
       continue;  // Skip if observation is not available
     }
     // Build pose chain (target->cam0->baselines->camN)
-    // The multiplication here then uses the internals lhs to compute something and it's gone... FIx
     auto T_cam_w = T_tc_guess_dv->toExpression().inverse();
     for (size_t j = 0; j < i; ++j) {
       T_cam_w = baseline_dvs[j]->toExpression() * T_cam_w;

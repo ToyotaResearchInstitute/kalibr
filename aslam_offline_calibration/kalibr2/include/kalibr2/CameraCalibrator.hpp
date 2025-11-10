@@ -150,15 +150,15 @@ class CameraCalibrator : public CameraCalibratorBase {
       Eigen::Vector2d y;
       bool valid = observation.imagePoint(i, y);
       if (valid) {
-        std::cout << "Target point (homogeneous): " << p_target.toHomogeneous() << std::endl;
-        std::cout << "Point to pass: " << (T_cam_w * p_target).toHomogeneous() << std::endl;
+        // std::cout << "Target point (homogeneous): " << p_target.toHomogeneous() << std::endl;
+        // std::cout << "Point to pass: " << (T_cam_w * p_target).toHomogeneous() << std::endl;
         // Probably I need to store this multiplication to make it work?
         // I did this in the pass.
         auto rerr =
             boost::make_shared<typename CameraT::ReprojectionError>(y, invR, T_cam_w * p_target, design_variable_);
         problem->addErrorTerm(rerr);
-        std::cout << "Predicted measurement when added" << rerr->getPredictedMeasurement()
-                  << std::endl;  // For debugging
+        // std::cout << "Predicted measurement when added" << rerr->getPredictedMeasurement()
+        //           << std::endl;  // For debugging
 
         if (reprojection_errors.has_value()) {
           reprojection_errors->get().push_back(rerr);
@@ -183,15 +183,15 @@ class CameraCalibrator : public CameraCalibratorBase {
       Eigen::Vector2d y;
       bool valid = observation.imagePoint(i, y);
       if (valid) {
-        std::cout << "Target point (homogeneous): " << p_target.toHomogeneous() << std::endl;
-        std::cout << "Point to pass: " << (T_cam_w * p_target).toHomogeneous() << std::endl;
+        // std::cout << "Target point (homogeneous): " << p_target.toHomogeneous() << std::endl;
+        // std::cout << "Point to pass: " << (T_cam_w * p_target).toHomogeneous() << std::endl;
         // Probably I need to store this multiplication to make it work?
         // I did this in the pass.
         auto rerr =
             boost::make_shared<typename CameraT::ReprojectionError>(y, invR, T_cam_w * p_target, design_variable_);
         problem->addErrorTerm(rerr);
-        std::cout << "Predicted measurement when added" << rerr->getPredictedMeasurement()
-                  << std::endl;  // For debugging
+        // std::cout << "Predicted measurement when added" << rerr->getPredictedMeasurement()
+        //           << std::endl;  // For debugging
 
         if (reprojection_errors.has_value()) {
           reprojection_errors->get().push_back(rerr);

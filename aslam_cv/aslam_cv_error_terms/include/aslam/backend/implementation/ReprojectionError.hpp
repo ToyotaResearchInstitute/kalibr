@@ -99,7 +99,6 @@ typename ReprojectionError<F>::measurement_t ReprojectionError<F>::getPredictedM
   const camera_geometry_t & cam = *_camera.camera();
 
   Eigen::Vector4d p = _point.toHomogeneous();
-  std::cout << "Homogeneous point: " << p.transpose() << std::endl;
   measurement_t hat_y;
   cam.homogeneousToKeypoint(p, hat_y);
 
