@@ -6,8 +6,9 @@ project(aslam_cameras_april
   LANGUAGES CXX
   )
 
-  add_library(${PROJECT_NAME}
+add_library(${PROJECT_NAME}
   src/GridCalibrationTargetAprilgrid.cpp
+  src/GridCalibrationTargetAprilgridv2.cpp
 )
 
 find_package(aslam_cameras REQUIRED)
@@ -83,3 +84,6 @@ write_basic_package_version_file(
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
               "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
         DESTINATION ${INSTALL_CMAKEDIR})
+
+enable_testing()
+add_subdirectory(test)
