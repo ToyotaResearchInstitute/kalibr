@@ -84,7 +84,11 @@ bool GridCalibrationTargetAprilgridv2::computeObservation(
   std::vector<int> markerIds;
   std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
   cv::aruco::detectMarkers(image, _options.dictionary, markerCorners, markerIds, _options.detectorParameters, rejectedCandidates);
-
+  // Aruco corner ordering per tag is
+  ///          0-------1
+  ///    y     |  TAG  |
+  ///   ^      3-------2
+  ///   |-->x
   // Check for minimum number of valid detected tags.
   auto validIds = std::count_if(markerIds.begin(), markerIds.end(),
                                [this](int id) {
@@ -114,7 +118,7 @@ bool GridCalibrationTargetAprilgridv2::computeObservation(
 
 
   // Reorder corners for each tag in counter-clockwise order starting from bottom-left.
-  /// original
+  /// original (aruco's)
   ///          0-------1
   ///    y     |  TAG  |
   ///   ^      3-------2

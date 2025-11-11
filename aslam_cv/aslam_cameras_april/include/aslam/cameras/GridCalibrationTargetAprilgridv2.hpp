@@ -38,7 +38,6 @@ class GridCalibrationTargetAprilgridv2 : public GridCalibrationTargetBase {
         detectorParameters->cornerRefinementMethod = cv::aruco::CORNER_REFINE_SUBPIX;
         detectorParameters->markerBorderBits = 2;
       }
-    ~AprilgridOptionsv2() {}
 
     //options
     cv::Ptr<cv::aruco::DetectorParameters> detectorParameters;
