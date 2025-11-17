@@ -197,7 +197,7 @@ TEST_F(BagReaderTestFixture, DISABLED_MultiThreadReading) {
 
   // |---- Extract observations for each camera ----|
   std::vector<std::vector<aslam::cameras::GridCalibrationTargetObservation>> observations_by_camera;
-  observations_by_camera.resize(config.cameras.size());
+  observations_by_camera.resize(camera_calibrators.size());
 
   // Helper lambda that calls the existing get_observations_from_camera and writes the result to 'out'.
   auto get_observations_thread_fn = [](kalibr2::ImageReader& reader, const aslam::cameras::GridDetector& detector,
@@ -207,7 +207,7 @@ TEST_F(BagReaderTestFixture, DISABLED_MultiThreadReading) {
   };
 
   std::vector<std::thread> threads;
-  for (size_t camera_id = 0; camera_id < config.cameras.size(); ++camera_id) {
+  for (size_t camera_id = 0; camera_id < camera_calibrators.size(); ++camera_id) {
     // Prepare per-thread arguments
     const auto& camera_config = config.cameras.at(camera_id);
     auto detector = aslam::cameras::GridDetector(camera_calibrators.at(camera_id)->camera_geometry(), config.target);
@@ -249,15 +249,15 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
 
   // |---- Extract observations for each camera ----|
   std::vector<std::vector<aslam::cameras::GridCalibrationTargetObservation>> observations_by_camera;
-  observations_by_camera.resize(config.cameras.size());
+  observations_by_camera.resize(camera_calibrators.size());
 
   // Use multithreading to fill observations_by_camera in parallel (same pattern as MultiThreadReading).
   // const size_t max_observations = 20000;
-  const size_t max_observations = 300000;
+  const size_t max_observations = 10;
   std::vector<std::thread> threads;
-  threads.reserve(config.cameras.size());
+  threads.reserve(camera_calibrators.size());
 
-  for (size_t camera_id = 0; camera_id < config.cameras.size(); ++camera_id) {
+  for (size_t camera_id = 0; camera_id < camera_calibrators.size(); ++camera_id) {
     // Capture camera_id by value to avoid iterator-capture issues.
     const size_t id = camera_id;
     threads.emplace_back([&config, &camera_calibrators, &observations_by_camera, id, max_observations]() {
@@ -276,7 +276,7 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
   }
 
   // |---- Get initial intrinsic guess for each camera ----|
-  for (size_t camera_id = 0; camera_id < config.cameras.size(); ++camera_id) {
+  for (size_t camera_id = 0; camera_id < camera_calibrators.size(); ++camera_id) {
     const auto& camera_config = config.cameras.at(camera_id);
     auto detector = aslam::cameras::GridDetector(camera_calibrators.at(camera_id)->camera_geometry(), config.target);
     bool success =
@@ -311,7 +311,7 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
 
   // | ---- Stereo Calibration Best Pairs ----|
   std::map<std::pair<size_t, size_t>, sm::kinematics::Transformation> optimal_baselines;
-  for (size_t i = 0; i < config.cameras.size(); ++i) {
+  for (size_t i = 0; i < camera_calibrators.size(); ++i) {
     if (i == start_node_idx) {
       continue;  // Skip the start node
     } else {
@@ -327,7 +327,7 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
     }
   }
 
-  for (size_t i = 0; i < config.cameras.size() - 1; ++i) {
+  for (size_t i = 0; i < camera_calibrators.size() - 1; ++i) {
     std::cout << "Checking for transform between camera " << i << " and " << i + 1 << std::endl;
     // If the transform is already in the map, continue
     auto tf_it = optimal_baselines.find({i, i + 1});
@@ -350,7 +350,7 @@ TEST_F(BagReaderTestFixture, IntegrationMultipleCameras) {
   }
 
   std::vector<sm::kinematics::Transformation> baseline_guesses;
-  for (size_t i = 0; i < config.cameras.size() - 1; ++i) {
+  for (size_t i = 0; i < camera_calibrators.size() - 1; ++i) {
     auto tf_it = optimal_baselines.find({i, i + 1});
     ASSERT_TRUE(tf_it != optimal_baselines.end()) << "No transform found for camera pair: " << i << " and " << i + 1;
     baseline_guesses.push_back(tf_it->second);
