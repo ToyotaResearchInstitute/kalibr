@@ -6,6 +6,15 @@ project(kalibr2_ros
   LANGUAGES CXX
 )
 
+include(FetchContent)
+
+FetchContent_Declare(
+  cli11
+  GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
+  GIT_TAG v2.4.2
+)
+FetchContent_MakeAvailable(cli11)
+
 find_package(ament_cmake REQUIRED)
 find_package(aslam_time REQUIRED)
 find_package(kalibr2 REQUIRED)
@@ -16,12 +25,18 @@ find_package(rosbag2_transport REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
+# find_package(CLI11 CONFIG REQUIRED)
 
-# Temporal include directories
+# Temporal include directories, till encapsulation is done
 find_package(incremental_calibration REQUIRED)
+
+# CLI deps
+find_package(yaml-cpp REQUIRED)
 
 add_library(${PROJECT_NAME}
   src/BagReader.cpp
+  src/Config.cpp  # Contains ConfigFromYaml implementation
+  src/Output.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -39,6 +54,7 @@ target_link_libraries(${PROJECT_NAME}
   rosbag2_storage::rosbag2_storage
   rosbag2_transport::rosbag2_transport
   ${OpenCV_LIBS}
+  yaml-cpp
   # Temporal linking
   incremental_calibration::incremental_calibration
 )
@@ -53,12 +69,22 @@ ament_target_dependencies(
   sensor_msgs
 )
 
+add_executable(kalibr_calibrate_cameras
+  src/CalibrateCameras.cpp
+)
+
+target_link_libraries(kalibr_calibrate_cameras
+  ${PROJECT_NAME}
+  CLI11::CLI11
+)
+
 install(
-  TARGETS ${PROJECT_NAME}
+  TARGETS ${PROJECT_NAME} kalibr_calibrate_cameras
   EXPORT ${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
+  # Need to use this path for executables as well
+  RUNTIME DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY include/ DESTINATION include/${PROJECT_NAME})
 

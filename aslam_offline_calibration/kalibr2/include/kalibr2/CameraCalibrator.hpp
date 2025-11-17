@@ -1,12 +1,15 @@
 #pragma once
 
 #include <aslam/backend/CameraDesignVariable.hpp>
+#include <aslam/backend/HomogeneousExpression.hpp>
+#include <aslam/backend/HomogeneousPoint.hpp>
 #include <aslam/backend/TransformationExpression.hpp>
 #include <aslam/calibration/core/OptimizationProblem.h>
 #include <aslam/cameras/CameraGeometryBase.hpp>
 #include <aslam/cameras/GridCalibrationTargetObservation.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/shared_ptr.hpp>
+#include <kalibr2/CameraModels.hpp>
 
 namespace kalibr2 {
 
@@ -349,5 +352,31 @@ class CameraCalibrator : public CameraCalibratorBase {
   // Store reprojection errors for later use (e.g., statistics computation)
   std::vector<std::vector<boost::shared_ptr<typename CameraT::ReprojectionError>>> per_view_reprojection_errors_;
 };
+
+/// @brief Create a camera calibrator from a model string
+/// @param model The camera model string (e.g., "pinhole-radtan", "omni-radtan")
+/// @return Shared pointer to a CameraCalibratorBase instance
+/// @throws std::runtime_error if the model string is not recognized
+inline boost::shared_ptr<CameraCalibratorBase> CreateCalibrator(const std::string& model) {
+  if (model == "pinhole-radtan") {
+    return boost::make_shared<CameraCalibrator<models::DistortedPinhole>>();
+  } else if (model == "pinhole-equi") {
+    return boost::make_shared<CameraCalibrator<models::EquidistantPinhole>>();
+  } else if (model == "pinhole-fov") {
+    return boost::make_shared<CameraCalibrator<models::FovPinhole>>();
+  } else if (model == "omni-none") {
+    return boost::make_shared<CameraCalibrator<models::Omni>>();
+  } else if (model == "omni-radtan") {
+    return boost::make_shared<CameraCalibrator<models::DistortedOmni>>();
+  } else if (model == "eucm-none") {
+    return boost::make_shared<CameraCalibrator<models::ExtendedUnified>>();
+  } else if (model == "ds-none") {
+    return boost::make_shared<CameraCalibrator<models::DoubleSphere>>();
+  } else {
+    throw std::runtime_error("Unknown camera model: " + model +
+                             ". Supported models: pinhole-radtan, pinhole-equi, pinhole-fov, "
+                             "omni-none, omni-radtan, eucm-none, ds-none");
+  }
+}
 
 }  // namespace kalibr2

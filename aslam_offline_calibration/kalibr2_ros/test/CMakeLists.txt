@@ -4,6 +4,7 @@ find_package(ament_cmake_gtest REQUIRED)
 
 ament_add_gtest(${PROJECT_NAME}-test
   BagReaderTest.cpp TIMEOUT 300000
+  ConfigTest.cpp
 )
 
 target_link_libraries(
