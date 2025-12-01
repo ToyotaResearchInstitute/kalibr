@@ -22,10 +22,11 @@ find_package(rclcpp REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(rosbag2_storage REQUIRED)
 find_package(rosbag2_transport REQUIRED)
+find_package(rosidl_runtime_cpp REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
-# find_package(CLI11 CONFIG REQUIRED)
 
 # Temporal include directories, till encapsulation is done
 find_package(incremental_calibration REQUIRED)
@@ -36,7 +37,6 @@ find_package(yaml-cpp REQUIRED)
 add_library(${PROJECT_NAME}
   src/BagReader.cpp
   src/Config.cpp  # Contains ConfigFromYaml implementation
-  src/Output.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -53,6 +53,7 @@ target_link_libraries(${PROJECT_NAME}
   rosbag2_cpp::rosbag2_cpp
   rosbag2_storage::rosbag2_storage
   rosbag2_transport::rosbag2_transport
+  rosidl_runtime_cpp::rosidl_runtime_cpp
   ${OpenCV_LIBS}
   yaml-cpp
   # Temporal linking
@@ -65,8 +66,10 @@ ament_target_dependencies(
   rosbag2_cpp
   rosbag2_storage
   rosbag2_transport
+  rosidl_runtime_cpp
   rclcpp
   sensor_msgs
+  geometry_msgs
 )
 
 add_executable(kalibr_calibrate_cameras

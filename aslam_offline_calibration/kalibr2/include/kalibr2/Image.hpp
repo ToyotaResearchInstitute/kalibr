@@ -35,7 +35,21 @@ class ImageReader {
   virtual Image ReadNext() = 0;
   virtual bool HasNext() const = 0;
   virtual size_t MessageCount() = 0;
+
+  /// Get the image dimensions (width, height).
+  /// @throws std::runtime_error if called before reading any images.
+  std::pair<size_t, size_t> GetImageSize() const {
+    if (image_width_ == 0 || image_height_ == 0) {
+      throw std::runtime_error("GetImageSize() called before reading any images. Call ReadNext() first.");
+    }
+    return {image_width_, image_height_};
+  }
+
   virtual ~ImageReader() = default;
+
+ protected:
+  size_t image_width_ = 0;
+  size_t image_height_ = 0;
 };
 
 }  // namespace kalibr2

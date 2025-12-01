@@ -12,6 +12,7 @@
 namespace kalibr2::ros {
 
 struct CameraConfig {
+  std::string camera_name;
   std::unique_ptr<kalibr2::ImageReader> reader;
   std::string model;
   std::optional<double> focal_length;  // Optional focal length for calibration

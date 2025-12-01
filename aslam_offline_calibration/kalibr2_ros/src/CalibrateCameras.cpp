@@ -15,6 +15,7 @@
 
 // Temporal includes
 #include <aslam/calibration/core/IncrementalEstimator.h>
+#include <kalibr2_ros/ROSToYAMLConverter.hpp>
 
 using kalibr2::ros::CalibrationConfig;
 using kalibr2::ros::CameraConfig;
@@ -49,6 +50,11 @@ int main(int argc, char** argv) {
   app.add_option("-c,--config", bag_path, "Full path to calibration configuration YAML file.")
       ->required()
       ->check(CLI::ExistingFile);
+
+  std::string output_dir;
+  app.add_option("-o,--output-dir", output_dir, "Directory to save the calibration results.")
+      ->required()
+      ->check(CLI::ExistingDirectory);
 
   double approx_sync_tolerance(0.02);
   app.add_option("--approx-sync-tolerance", approx_sync_tolerance,
@@ -241,15 +247,23 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "\n--- Final Camera Parameters ---" << std::endl;
-  for (auto& camera_calibrator : camera_calibrators) {
+  for (size_t i = 0; i < camera_calibrators.size(); ++i) {
+    auto& camera_calibrator = camera_calibrators[i];
     Eigen::MatrixXd k;
     camera_calibrator->camera_geometry()->getParameters(k, true, true, false);
-    std::cout << "Intrinsics: " << std::endl;
     std::cout << k << std::endl;
     camera_calibrator->PrintReprojectionErrorStatistics();
-    // std::cout << "Reprojection error: " <<  << std::endl;
+
+    // Export to CameraInfo YAML
+    const auto& camera_config = config.cameras.at(i);
+    auto [width, height] = camera_config.reader->GetImageSize();
+    std::string output_filename = "calibration_" + camera_config.camera_name + ".yaml";
+    std::string output_filepath = output_dir + "/" + output_filename;
+    kalibr2::ros::CalibratorToYAML(camera_calibrator, camera_config.model, camera_config.camera_name, width, height,
+                                   output_filepath);
+    std::cout << "Exported calibration to: " << output_filepath << std::endl;
   }
-  std::cout << "Extrinsics: " << std::endl;
+  std::cout << "\nExtrinsics: " << std::endl;
   for (const auto& baseline : baseline_guesses) {
     std::cout << "Translation: " << std::endl;
     std::cout << baseline.t() << std::endl;

@@ -53,7 +53,12 @@ class BagImageReader : public ImageReader {
 
   Image ReadNext() override {
     auto msg = reader_->read_next<MessageT>();
-    return image_from_message(msg);
+    auto img = image_from_message(msg);
+    if (image_width_ == 0 || image_height_ == 0) {
+      image_width_ = img.image.cols;
+      image_height_ = img.image.rows;
+    }
+    return img;
   }
 
   bool HasNext() const override { return reader_->has_next(); }

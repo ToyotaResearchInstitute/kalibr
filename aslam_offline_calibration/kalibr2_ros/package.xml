@@ -18,7 +18,10 @@
   <depend>rosbag2_transport</depend>
   <depend>rosbag2_cpp</depend>
   <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
   <depend>cv_bridge</depend>
+  <depend>yaml-cpp</depend>
+  <depend>rosidl_runtime_cpp</depend>
 
   <test_depend>ament_cmake_gtest</test_depend>
 

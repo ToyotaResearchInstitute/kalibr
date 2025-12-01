@@ -32,7 +32,7 @@ boost::shared_ptr<aslam::cameras::GridCalibrationTargetBase> ParseTarget(const Y
   }
 }
 
-CameraConfig ParseCamera(const YAML::Node& camera_config) {
+CameraConfig ParseCamera(const std::string& camera_name, const YAML::Node& camera_config) {
   if (!camera_config) {
     throw std::runtime_error("Camera configuration is missing");
   }
@@ -54,7 +54,7 @@ CameraConfig ParseCamera(const YAML::Node& camera_config) {
 
   auto reader = BagImageReaderFactory::create(rosbag_path, topic);
 
-  return CameraConfig{std::move(reader), model, focal_length};
+  return CameraConfig{camera_name, std::move(reader), model, focal_length};
 }
 
 }  // anonymous namespace
@@ -82,7 +82,8 @@ CalibrationConfig ConfigFromYaml(const std::string& yaml_path) {
 
   const auto& cameras = config_yaml["cameras"];
   for (const auto& camera_node : cameras) {
-    config.cameras.emplace_back(ParseCamera(camera_node.second));
+    std::string camera_name = camera_node.first.as<std::string>();
+    config.cameras.emplace_back(ParseCamera(camera_name, camera_node.second));
   }
 
   return config;
