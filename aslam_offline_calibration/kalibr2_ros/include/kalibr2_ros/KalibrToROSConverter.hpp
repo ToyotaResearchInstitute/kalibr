@@ -2,6 +2,11 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
+
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <sm/kinematics/Transformation.hpp>
+#include <tf2_msgs/msg/tf_message.hpp>
 
 namespace kalibr2::ros {
 
@@ -40,15 +45,21 @@ static const std::unordered_map<std::string, std::string> kKalibrToROSDistortion
 
 /// @brief Convert a Kalibr2 camera model name to a ROS CameraInfo distortion model name
 /// @param kalibr_model The Kalibr2 model string (e.g., "pinhole-radtan", "omni-radtan")
-/// @return The corresponding ROS distortion model name, or "plumb_bob" as fallback
-inline std::string ToROSDistortionModel(const std::string& kalibr_model) {
-  auto it = kKalibrToROSDistortionModel.find(kalibr_model);
-  if (it != kKalibrToROSDistortionModel.end()) {
-    return it->second;
-  }
+/// @return The corresponding ROS distortion model name, or "unknown" as fallback
+std::string ToROSDistortionModel(const std::string& kalibr_model);
 
-  // Default fallback for unknown models
-  return "unknown";
-}
+/// @brief Convert sm::kinematics::Transformation to geometry_msgs::msg::TransformStamped
+/// @param transformation The sm::kinematics::Transformation to convert
+/// @param frames A pair of strings representing (parent_frame, child_frame)
+/// @return TransformStamped message with the transformation
+geometry_msgs::msg::TransformStamped TransformationToROS(const sm::kinematics::Transformation& transformation,
+                                                         std::pair<std::string, std::string> frames);
+
+/// @brief Convert multiple sm::kinematics::Transformations to tf2_msgs::msg::TFMessage
+/// @param transformations Vector of transformations to convert
+/// @param frames Vector of pairs of strings representing (parent_frame, child_frame) for each transformation
+/// @return TFMessage containing all transforms
+tf2_msgs::msg::TFMessage TransformationsToTFMessage(const std::vector<sm::kinematics::Transformation>& transformations,
+                                                    const std::vector<std::pair<std::string, std::string>>& frames);
 
 }  // namespace kalibr2::ros

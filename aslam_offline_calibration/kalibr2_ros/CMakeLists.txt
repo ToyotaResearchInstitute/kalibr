@@ -26,6 +26,7 @@ find_package(rosidl_runtime_cpp REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(tf2_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 
 # Temporal include directories, till encapsulation is done
@@ -36,7 +37,9 @@ find_package(yaml-cpp REQUIRED)
 
 add_library(${PROJECT_NAME}
   src/BagReader.cpp
-  src/Config.cpp  # Contains ConfigFromYaml implementation
+  src/Config.cpp
+  src/KalibrToROSConverter.cpp
+  src/ROSToYAMLConverter.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -70,6 +73,7 @@ ament_target_dependencies(
   rclcpp
   sensor_msgs
   geometry_msgs
+  tf2_msgs
 )
 
 add_executable(kalibr_calibrate_cameras

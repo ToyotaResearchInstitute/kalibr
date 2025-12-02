@@ -21,23 +21,42 @@ using kalibr2::ros::CalibrationConfig;
 using kalibr2::ros::CameraConfig;
 
 std::vector<aslam::cameras::GridCalibrationTargetObservation> get_observations_from_camera(
-    kalibr2::ImageReader& reader, const aslam::cameras::GridDetector& detector, size_t min_num_observations) {
+    kalibr2::ImageReader& reader, const aslam::cameras::GridDetector& detector, size_t min_num_observations,
+    const std::string& camera_name) {
   std::vector<aslam::cameras::GridCalibrationTargetObservation> observations;
   const size_t message_count = reader.MessageCount();
   size_t images_processed = 0;
 
+  std::cout << "[" << camera_name << "] Starting observation extraction from " << message_count << " images"
+            << std::endl;
+
   while (reader.HasNext()) {
     kalibr2::Image img = reader.ReadNext();
+    images_processed++;
+
     auto observation = kalibr2::ToObservation(img, detector);
 
     if (observation.has_value()) {
       observations.push_back(observation.value());
-      if (observations.size() >= min_num_observations) {
-        std::cout << "Enough observations collected" << std::endl;
-        break;  // Stop after collecting enough observations
-      }
+    }
+
+    std::cout << "\r[" << camera_name << "] Progress: " << images_processed << "/" << message_count << " images, "
+              << observations.size() << " observations ("
+              << (images_processed > 0 ? (100.0 * observations.size() / images_processed) : 0.0) << "% detected)"
+              << std::flush;
+
+    if (observations.size() >= min_num_observations) {
+      std::cout << std::endl;
+      std::cout << "[" << camera_name << "] Reached target of " << min_num_observations
+                << " observations after processing " << images_processed << " images" << std::endl;
+      break;
     }
   }
+
+  std::cout << std::endl;
+  std::cout << "[" << camera_name << "] Final: " << observations.size() << " observations from " << images_processed
+            << " images (" << (images_processed > 0 ? (100.0 * observations.size() / images_processed) : 0.0)
+            << "% detection rate)" << std::endl;
 
   return observations;
 }
@@ -96,7 +115,8 @@ int main(int argc, char** argv) {
     threads.emplace_back([&config, &camera_calibrators, &observations_by_camera, id, max_observations]() {
       const auto& camera_config = config.cameras.at(id);
       auto detector = aslam::cameras::GridDetector(camera_calibrators.at(id)->camera_geometry(), config.target);
-      observations_by_camera.at(id) = get_observations_from_camera(*camera_config.reader, detector, max_observations);
+      observations_by_camera.at(id) =
+          get_observations_from_camera(*camera_config.reader, detector, max_observations, camera_config.camera_name);
     });
   }
 
@@ -105,7 +125,8 @@ int main(int argc, char** argv) {
   }
 
   for (size_t i = 0; i < observations_by_camera.size(); ++i) {
-    std::cout << "Camera " << i << " collected " << observations_by_camera[i].size() << " observations." << std::endl;
+    std::cout << config.cameras[i].camera_name << " collected " << observations_by_camera[i].size() << " observations."
+              << std::endl;
   }
 
   // |---- Get initial intrinsic guess for each camera ----|
@@ -149,8 +170,10 @@ int main(int argc, char** argv) {
       continue;  // Skip the start node
     } else {
       auto best_camera_pair = result.GetPreviousIndex(i);
-      std::cout << "Best pair for camera " << i << ": " << best_camera_pair << std::endl;
-      std::cout << "Distance to camera " << i << ": " << result.GetNodeDistance(i) << std::endl;
+      std::cout << "Best pair for camera " << config.cameras[i].camera_name << ": "
+                << config.cameras[best_camera_pair].camera_name << std::endl;
+      std::cout << "Distance to camera " << config.cameras[i].camera_name << ": " << result.GetNodeDistance(i)
+                << std::endl;
       // Stereo calibrate pair
       auto tf = kalibr2::tools::CalibrateStereoPair(
           camera_calibrators.at(i), camera_calibrators.at(best_camera_pair),
@@ -225,12 +248,8 @@ int main(int argc, char** argv) {
   std::vector<kalibr2::tools::BatchProblemStruct> batch_problems;
   for (auto& synced_set : synced_sets) {
     auto T_tc_guess = kalibr2::tools::getTargetPoseGuess(camera_calibrators, synced_set, baseline_guesses);
-    // auto batch_problem = OptimizationProblem();
-    // std::cout << "\n--- New Batch Problem ---" << std::endl;
     auto batch_problem_struct =
         kalibr2::tools::CreateBatchProblem(camera_calibrators, synced_set, T_tc_guess, baseline_guesses, config.target);
-    // std::cout << "Created batch problem with " << std::endl;
-    // define the problem as in original code
     auto batch_return_value = estimator.addBatch(batch_problem_struct.problem);
     // std::cout << "Attempt to add batch" << std::endl;
     if (batch_return_value.numIterations > optimizer_options.maxIterations) {
@@ -249,9 +268,6 @@ int main(int argc, char** argv) {
   std::cout << "\n--- Final Camera Parameters ---" << std::endl;
   for (size_t i = 0; i < camera_calibrators.size(); ++i) {
     auto& camera_calibrator = camera_calibrators[i];
-    Eigen::MatrixXd k;
-    camera_calibrator->camera_geometry()->getParameters(k, true, true, false);
-    std::cout << k << std::endl;
     camera_calibrator->PrintReprojectionErrorStatistics();
 
     // Export to CameraInfo YAML
@@ -263,11 +279,27 @@ int main(int argc, char** argv) {
                                    output_filepath);
     std::cout << "Exported calibration to: " << output_filepath << std::endl;
   }
-  std::cout << "\nExtrinsics: " << std::endl;
-  for (const auto& baseline : baseline_guesses) {
-    std::cout << "Translation: " << std::endl;
-    std::cout << baseline.t() << std::endl;
-    std::cout << "Rotation: " << std::endl;
-    std::cout << baseline.q() << std::endl;
+
+  // Export all extrinsics
+  if (baseline_guesses.size() == 1) {
+    // Single transform - export as TransformStamped
+    std::string transform_filename =
+        "transform_" + config.cameras[0].camera_name + "_to_" + config.cameras[1].camera_name + ".yaml";
+    std::string transform_filepath = output_dir + "/" + transform_filename;
+    auto tf_msg = kalibr2::ros::TransformationToROS(baseline_guesses[0],
+                                                    {config.cameras[0].camera_name, config.cameras[1].camera_name});
+    kalibr2::ros::transformStampedToYAML(tf_msg, transform_filepath);
+    std::cout << "Exported transform to: " << transform_filepath << std::endl;
+  } else {
+    // Multiple transforms - export as TFMessage
+    std::vector<std::pair<std::string, std::string>> frames;
+    for (size_t i = 0; i < baseline_guesses.size(); ++i) {
+      frames.emplace_back(config.cameras[i].camera_name, config.cameras[i + 1].camera_name);
+    }
+
+    auto tf_message = kalibr2::ros::TransformationsToTFMessage(baseline_guesses, frames);
+    std::string tf_message_filepath = output_dir + "/camera_chain_transforms.yaml";
+    kalibr2::ros::tfMessageToYAML(tf_message, tf_message_filepath);
+    std::cout << "Exported all transforms to: " << tf_message_filepath << std::endl;
   }
 }
