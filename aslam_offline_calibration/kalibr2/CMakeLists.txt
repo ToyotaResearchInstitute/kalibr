@@ -6,6 +6,7 @@ project(kalibr2
   LANGUAGES CXX
 )
 
+find_package(aslam_backend_expressions REQUIRED)
 find_package(aslam_cameras REQUIRED)
 find_package(aslam_cameras_april REQUIRED)
 find_package(aslam_time REQUIRED)
@@ -30,6 +31,7 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
+  aslam_backend_expressions::aslam_backend_expressions
   aslam_cameras::aslam_cameras
   aslam_cameras_april::aslam_cameras_april
   aslam_time::aslam_time

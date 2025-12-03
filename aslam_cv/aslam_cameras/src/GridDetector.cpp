@@ -8,6 +8,8 @@
 #include <sm/logging.hpp>
 #include <aslam/cameras/GridDetector.hpp>
 
+#include <chrono>
+
 namespace aslam {
 namespace cameras {
 
@@ -90,12 +92,13 @@ bool GridDetector::findTarget(const cv::Mat & image,
 }
 
 bool GridDetector::findTargetNoTransformation(const cv::Mat & image, const aslam::Time & stamp,
-    GridCalibrationTargetObservation & outObservation) const {
+  GridCalibrationTargetObservation & outObservation) const {
   bool success = false;
 
   // Extract the calibration target corner points
   Eigen::MatrixXd cornerPoints;
   std::vector<bool> validCorners;
+
   success = _target->computeObservation(image, cornerPoints, validCorners);
 
   // Set the image, target, and timestamp regardless of success.
@@ -103,9 +106,9 @@ bool GridDetector::findTargetNoTransformation(const cv::Mat & image, const aslam
   outObservation.setImage(image);
   outObservation.setTime(stamp);
 
-  // Set the observed corners in the observation
-  for (int i = 0; i < cornerPoints.rows(); i++) {
-    if (validCorners[i])
+  // time the loop that updates observed corners
+  for (int i = 0; i < cornerPoints.rows(); ++i) {
+    if (i < static_cast<int>(validCorners.size()) && validCorners[i])
       outObservation.updateImagePoint(i, cornerPoints.row(i).transpose());
   }
 
@@ -133,7 +136,7 @@ bool GridDetector::findTarget(const cv::Mat & image, const aslam::Time & stamp,
   //calculate reprojection errors
   auto compute_stats = [&](double &mean, double &std, Eigen::MatrixXd &reprojection_errors_norm,
                            std::vector<cv::Point2f> &corners_reproj, std::vector<cv::Point2f> &corners_detected) {
-    
+
     corners_reproj.clear();
     corners_detected.clear();
     outObservation.getCornerReprojection(_geometry, corners_reproj);
@@ -211,17 +214,17 @@ bool GridDetector::findTarget(const cv::Mat & image, const aslam::Time & stamp,
       Eigen::MatrixXd reprojection_errors_norm;
       std::vector<cv::Point2f> corners_reproj, corners_detected;
       compute_stats(mean, std, reprojection_errors_norm, corners_reproj, corners_detected);
-      
+
       // show the on the rendered image
       auto format_str = [](double data) {
         std::ostringstream ss;
         ss << std::setprecision(3) << data;
         return ss.str();
       };
-      cv::putText(imageCopy1, "reproj err mean: " + format_str(mean), 
+      cv::putText(imageCopy1, "reproj err mean: " + format_str(mean),
                   cv::Point(50, 50), cv::FONT_HERSHEY_SIMPLEX, 0.8,
                   CV_RGB(0,255,0), 3, 8, false);
-      cv::putText(imageCopy1, "reproj err std: " + format_str(std), 
+      cv::putText(imageCopy1, "reproj err std: " + format_str(std),
                   cv::Point(50, 100), cv::FONT_HERSHEY_SIMPLEX, 0.8,
                   CV_RGB(0,255,0), 3, 8, false);
 

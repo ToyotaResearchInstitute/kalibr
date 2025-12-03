@@ -1,7 +1,10 @@
 #pragma once
 
+#include <numeric>
+
 #include <aslam/backend/EuclideanPoint.hpp>
 #include <aslam/backend/HomogeneousExpression.hpp>
+#include <aslam/backend/HomogeneousPoint.hpp>
 #include <aslam/backend/LevenbergMarquardtTrustRegionPolicy.hpp>
 #include <aslam/backend/Optimizer2.hpp>
 #include <aslam/backend/Optimizer2Options.hpp>
@@ -27,18 +30,24 @@ using SyncedSet = std::vector<std::optional<aslam::cameras::GridCalibrationTarge
 namespace tools {
 
 boost::shared_ptr<aslam::backend::TransformationBasic> AddPoseDesignVariable(
-    boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
-    const sm::kinematics::Transformation& transform) {
+    boost::shared_ptr<aslam::calibration::OptimizationProblem> problem, const sm::kinematics::Transformation& transform,
+    bool active, size_t group_id) {
   // Create design variables for the rotation and translation
   auto q_Dv = boost::make_shared<aslam::backend::RotationQuaternion>(transform.q());
-  q_Dv->setActive(true);
-  problem->addDesignVariable(q_Dv);
+  q_Dv->setActive(active);
+  problem->addDesignVariable(q_Dv, group_id);
 
   auto t_Dv = boost::make_shared<aslam::backend::EuclideanPoint>(transform.t());
-  t_Dv->setActive(true);
-  problem->addDesignVariable(t_Dv);
+  t_Dv->setActive(active);
+  problem->addDesignVariable(t_Dv, group_id);
 
   return boost::make_shared<aslam::backend::TransformationBasic>(q_Dv->toExpression(), t_Dv->toExpression());
+}
+
+boost::shared_ptr<aslam::backend::TransformationBasic> AddPoseDesignVariable(
+    boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
+    const sm::kinematics::Transformation& transform) {
+  return AddPoseDesignVariable(problem, transform, true, 0);
 }
 
 /**
@@ -306,6 +315,18 @@ inline sm::kinematics::Transformation CalibrateStereoPair(
 sm::kinematics::Transformation getTargetPoseGuess(
     const std::vector<boost::shared_ptr<kalibr2::CameraCalibratorBase>>& calibrators, const SyncedSet& synced_set,
     const std::vector<sm::kinematics::Transformation>& baseline_guesses) {
+  // assert(calibrators.size() == synced_set.size());
+
+  // // Assert that t least there's a valid observation in the synced set
+  // bool has_valid_observation = std::any_of(synced_set.begin(), synced_set.end(),
+  //                                      [](const std::optional<aslam::cameras::GridCalibrationTargetObservation>& obs)
+  //                                      {
+  //                                        return obs.has_value();
+  //                                      });
+  // if (!has_valid_observation) {
+  //   throw std::runtime_error("No valid observations in the synchronized set.");
+  // }
+
   std::vector<size_t> n_corners;
   std::transform(synced_set.begin(), synced_set.end(), std::back_inserter(n_corners),
                  [](const std::optional<aslam::cameras::GridCalibrationTargetObservation>& obs) {
@@ -317,10 +338,15 @@ sm::kinematics::Transformation getTargetPoseGuess(
                    return n_corners;
                  });
   auto max_index = std::distance(n_corners.begin(), std::max_element(n_corners.begin(), n_corners.end()));
-  auto geometry = calibrators[max_index]->camera_geometry();
-  auto observation = synced_set[max_index];
+  auto geometry = calibrators.at(max_index)->camera_geometry();
+  auto observation = synced_set.at(max_index);
 
   auto T_t_cN = sm::kinematics::Transformation();
+  // if (!observation.has_value()) {
+  //   auto max_corners = n_corners.at(max_index);
+  //   std::cout << "Max corners found: " << max_corners << " for camera index " << max_index << std::endl;
+  //   throw std::runtime_error("No observation available for the camera with the most corners.");
+  // }
   geometry->estimateTransformation(observation.value(), T_t_cN);
 
   auto T_t_c0 = std::accumulate(baseline_guesses.begin(), baseline_guesses.begin() + max_index, T_t_cN,
@@ -399,6 +425,91 @@ std::vector<sm::kinematics::Transformation> CalibrateMultiCameraRig(
                    return sm::kinematics::Transformation(dv->toExpression().toTransformationMatrix());
                  });
   return baselines;
+}
+
+// This replicates the logic of the constructor of CalibrationTarget in the original Kalibr code.
+std::vector<boost::shared_ptr<aslam::backend::HomogeneousPoint>> getLandmarkDesignVariables(
+    boost::shared_ptr<aslam::calibration::OptimizationProblem> problem,
+    const aslam::cameras::GridCalibrationTargetBase::Ptr& target) {
+  // generate a index vector from 0 to target->size() - 1
+  std::vector<size_t> indices(target->size());
+  std::iota(indices.begin(), indices.end(), 0);
+  std::vector<boost::shared_ptr<aslam::backend::HomogeneousPoint>> landmark_dvs;
+  std::transform(indices.begin(), indices.end(), std::back_inserter(landmark_dvs), [&target](size_t i) {
+    // This line is failing because target->point(i) returns a Vector3d
+    // and not a Vector4d as expected by the HomogeneousPoint constructor.
+    return boost::make_shared<aslam::backend::HomogeneousPoint>(sm::kinematics::toHomogeneous(target->point(i)));
+  });
+  return landmark_dvs;
+}
+
+struct BatchProblemStruct {
+  boost::shared_ptr<aslam::calibration::OptimizationProblem> problem;
+  std::vector<boost::shared_ptr<aslam::backend::TransformationBasic>> baseline_dvs;
+  boost::shared_ptr<aslam::backend::TransformationBasic> target_pose_dv;
+  std::vector<boost::shared_ptr<aslam::backend::HomogeneousPoint>> landmark_dvs;
+};
+
+BatchProblemStruct CreateBatchProblem(
+    const std::vector<boost::shared_ptr<kalibr2::CameraCalibratorBase>>& camera_calibrators,
+    const SyncedSet& synced_set, const sm::kinematics::Transformation& T_tc_guess,
+    const std::vector<sm::kinematics::Transformation>& baseline_guesses,
+    const aslam::cameras::GridCalibrationTargetBase::Ptr& target) {
+  // TODO(frneer): Some methods, like AddPoseDesignVariable expect a shared_ptr.
+  // But passing shared_ptr around prevents copy elision. So... can we user refs?
+  auto problem = boost::make_shared<aslam::calibration::OptimizationProblem>();
+  constexpr int TRANSFORMATION_GROUP_ID = 0;
+  constexpr int CALIBRATION_GROUP_ID = 1;
+  constexpr int LANDMARK_GROUP_ID = 2;
+  // Maybe T_tc_guess should be computed inside this same function, check if it's used outside.
+
+  // 1. Add target pose design variable
+  auto T_tc_guess_dv = AddPoseDesignVariable(problem, T_tc_guess, false, TRANSFORMATION_GROUP_ID);
+
+  // 2. Add all baseline and target pose design variables
+  std::vector<boost::shared_ptr<aslam::backend::TransformationBasic>> baseline_dvs;
+  for (const auto& baseline : baseline_guesses) {
+    baseline_dvs.push_back(AddPoseDesignVariable(problem, baseline, true, CALIBRATION_GROUP_ID));
+  }
+
+  // 3. Add landmark design variables
+  auto landmark_dvs = getLandmarkDesignVariables(problem, target);
+  for (const auto& landmark : landmark_dvs) {
+    problem->addDesignVariable(landmark, LANDMARK_GROUP_ID);
+  }
+
+  // 4. Add camera intrinsic design variables
+  for (const auto& calibrator : camera_calibrators) {
+    calibrator->AddIntrinsicDesignVariables(problem, CALIBRATION_GROUP_ID);
+  }
+
+  // 5. Add reprojection error terms for each camera
+  constexpr double corner_uncertainty = 1.0;
+  Eigen::Matrix2d R = Eigen::Matrix2d::Identity() * corner_uncertainty * corner_uncertainty;
+  Eigen::Matrix2d invR = R.inverse();
+
+  std::vector<std::vector<boost::shared_ptr<aslam::backend::ErrorTerm>>> reprojection_errors;
+  for (size_t i = 0; i < synced_set.size(); ++i) {
+    if (!synced_set[i].has_value()) {
+      continue;  // Skip if observation is not available
+    }
+    // Build pose chain (target->cam0->baselines->camN)
+    auto T_cam_w = T_tc_guess_dv->toExpression().inverse();
+    for (size_t j = 0; j < i; ++j) {
+      T_cam_w = baseline_dvs[j]->toExpression() * T_cam_w;
+    }
+    // Add error terms
+    // Note(frneer): Original code adds an optional error term using blake-zisserman.
+    // As for now we have no evidence that is an used feature.
+    camera_calibrators[i]->AddAndStoreReprojectionErrorsForView(problem, synced_set[i].value(), T_cam_w, landmark_dvs,
+                                                                invR);
+  }
+  auto batch_problem_struct = BatchProblemStruct();
+  batch_problem_struct.problem = problem;
+  batch_problem_struct.baseline_dvs = baseline_dvs;
+  batch_problem_struct.target_pose_dv = T_tc_guess_dv;
+  batch_problem_struct.landmark_dvs = landmark_dvs;
+  return batch_problem_struct;
 }
 
 }  // namespace tools

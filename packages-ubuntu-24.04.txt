@@ -1,0 +1,10 @@
+cmake
+python3-pip
+python3-venv
+libboost-all-dev
+libgtest-dev
+libgmock-dev
+libeigen3-dev
+libopencv-dev
+libsuitesparse-dev
+libv4l-dev

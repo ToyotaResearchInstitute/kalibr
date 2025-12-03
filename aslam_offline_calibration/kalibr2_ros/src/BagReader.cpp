@@ -1,5 +1,8 @@
 #include "kalibr2_ros/BagReader.hpp"
 
+#include <rosbag2_storage/bag_metadata.hpp>
+#include <rosbag2_storage/topic_metadata.hpp>
+
 namespace kalibr2 {
 
 namespace ros {
@@ -20,6 +23,16 @@ rosbag2_storage::StorageOptions get_storage_options(const std::string& bag_file_
   return storage_options;
 }
 
+std::optional<rosbag2_storage::TopicInformation> get_topic_information(
+    const std::string& topic, const std::vector<rosbag2_storage::TopicInformation>& topics_information) {
+  const auto it = std::find_if(topics_information.begin(), topics_information.end(),
+                               [&topic](const rosbag2_storage::TopicInformation& topic_info) {
+                                 return topic_info.topic_metadata.name == topic;
+                               });
+
+  return it != topics_information.end() ? std::make_optional(*it) : std::nullopt;
+}
+
 /// Transforms a ROS message to an Image.
 template <typename MessageT>
 Image image_from_message(const MessageT& msg) {
@@ -35,17 +48,26 @@ Image image_from_message(const MessageT& msg) {
 template <typename MessageT>
 class BagImageReader : public ImageReader {
  public:
-  BagImageReader(std::unique_ptr<rosbag2_cpp::Reader> reader) : reader_(std::move(reader)) {}
+  BagImageReader(std::unique_ptr<rosbag2_cpp::Reader> reader, size_t image_count)
+      : reader_(std::move(reader)), image_count_(image_count) {}
 
   Image ReadNext() override {
     auto msg = reader_->read_next<MessageT>();
-    return image_from_message(msg);
+    auto img = image_from_message(msg);
+    if (image_width_ == 0 || image_height_ == 0) {
+      image_width_ = img.image.cols;
+      image_height_ = img.image.rows;
+    }
+    return img;
   }
 
   bool HasNext() const override { return reader_->has_next(); }
 
+  size_t MessageCount() override { return image_count_; }
+
  private:
   std::unique_ptr<rosbag2_cpp::Reader> reader_;
+  size_t image_count_;
 };
 
 }  // namespace
@@ -75,10 +97,17 @@ std::unique_ptr<ImageReader> BagImageReaderFactory::create(const std::string& ba
     throw std::runtime_error("Topic not found in bag: " + topic);
   }
 
+  auto topic_info = get_topic_information(topic, bag_metadata.topics_with_message_count);
+  if (!topic_info.has_value()) {
+    throw std::runtime_error("Topic has no messages in bag: " + topic);
+  }
+
   if (it->type == "sensor_msgs/msg/Image") {
-    return std::make_unique<BagImageReader<sensor_msgs::msg::Image>>(std::move(reader));
+    return std::make_unique<BagImageReader<sensor_msgs::msg::Image>>(std::move(reader),
+                                                                     topic_info.value().message_count);
   } else if (it->type == "sensor_msgs/msg/CompressedImage") {
-    return std::make_unique<BagImageReader<sensor_msgs::msg::CompressedImage>>(std::move(reader));
+    return std::make_unique<BagImageReader<sensor_msgs::msg::CompressedImage>>(std::move(reader),
+                                                                               topic_info.value().message_count);
   } else {
     throw std::runtime_error("Unsupported image type: " + it->type);
   }

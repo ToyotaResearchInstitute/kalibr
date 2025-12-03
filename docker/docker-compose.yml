@@ -1,8 +1,8 @@
 services:
   kalibr:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
 
     image: kalibr:latest
 
@@ -16,8 +16,8 @@ services:
 
   kalibr_ros_no_gpu:
     build:
-      context: .
-      dockerfile: Dockerfile.ros
+      context: ..
+      dockerfile: docker/Dockerfile.ros
 
     image: kalibr_ros:latest
 

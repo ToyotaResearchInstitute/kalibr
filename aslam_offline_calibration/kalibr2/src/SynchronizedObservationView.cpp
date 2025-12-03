@@ -33,27 +33,14 @@ SynchronizedObservationView::Iterator::Iterator(
 // window, we add it to the current sync set. If we do not find any observation in the time window, we discard the pivot
 // and continue.
 void SynchronizedObservationView::Iterator::find_next_set() {
-  size_t n_exhausted_iterators = 0;
-  size_t pivot_index = 0;
-  // Find the pivot index, which is the iterator with the oldest observation.
-  for (size_t i = 0; i < n_sources_; ++i) {
-    if (iterators_[i] == end_iterators_[i]) {
-      n_exhausted_iterators++;
-      continue;
-    }
-    if (iterators_[i]->time() < iterators_[pivot_index]->time()) {
-      pivot_index = i;
-    }
-  }
-
-  // If all iterators are exhausted, we are done.
-  if (n_exhausted_iterators == n_sources_) {
+  std::optional<size_t> pivot_index = get_pivot_index();
+  if (!pivot_index.has_value()) {
     is_finished_ = true;
     return;
   }
 
   // Define the time window for synchronization.
-  aslam::Time window_start = iterators_[pivot_index]->time();
+  aslam::Time window_start = iterators_[pivot_index.value()]->time();
   aslam::Time window_end = window_start + tolerance_;
 
   // Get the next sync set. Since the sets are ordered by time, we can just iterate through the top
@@ -68,6 +55,27 @@ void SynchronizedObservationView::Iterator::find_next_set() {
       iterators_[i]++;
     }
   }
+}
+
+std::optional<size_t> SynchronizedObservationView::Iterator::get_pivot_index() const {
+  std::optional<size_t> pivot_it = std::nullopt;
+  for (size_t i = 0; i < n_sources_; ++i) {
+    // If the iterator is exhausted, skip it.
+    if (iterators_[i] == end_iterators_[i]) {
+      continue;
+    }
+    // Find the iterator with the oldest observation.
+    // If there's already a pivot, compare and update if necessary.
+    // Else set the current iterator as the pivot.
+    if (pivot_it.has_value()) {
+      if (iterators_[i]->time() < iterators_[pivot_it.value()]->time()) {
+        pivot_it = i;
+      }
+    } else {
+      pivot_it = i;
+    }
+  }
+  return pivot_it;
 }
 
 std::vector<std::optional<aslam::cameras::GridCalibrationTargetObservation>> GetAllObservationsFromSource(

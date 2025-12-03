@@ -1,0 +1,20 @@
+board:
+  target_type: 'aprilgrid' # grid type
+  tagCols: 6               # number of apriltags in the horizontal direction
+  tagRows: 5               # number of apriltags in the vertical direction
+  tagSize: 0.088           # size of apriltag, edge to edge [m]
+  tagSpacing: 0.2954       # ratio of space between tags to tagSize
+
+cameras:
+  BFS_25037058:
+    model: 'pinhole-radtan'
+    focal_length_fallback: 881.0
+    source:
+      rosbag_path: '/kalibr/aslam_offline_calibration/kalibr2_ros/test/data/rosbag2_2025_06_11-12_00_21_0.mcap'
+      topic: '/BFS_25037058/image'
+  BFS_25037070:
+    model: 'pinhole-radtan'
+    focal_length_fallback: 881.0
+    source:
+      rosbag_path: '/kalibr/aslam_offline_calibration/kalibr2_ros/test/data/rosbag2_2025_06_11-12_00_21_0.mcap'
+      topic: '/BFS_25037070/image'
