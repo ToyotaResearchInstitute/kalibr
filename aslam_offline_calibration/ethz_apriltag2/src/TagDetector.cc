@@ -36,7 +36,6 @@ using namespace std;
 namespace AprilTags {
 
   std::vector<TagDetection> TagDetector::extractTags(const cv::Mat& image) {
-
     // convert to internal AprilTags image (todo: slow, change internally to OpenCV)
     int width = image.cols;
     int height = image.rows;
@@ -93,12 +92,10 @@ namespace AprilTags {
   }
 #endif
 #endif
-
   //================================================================
   // Step one: preprocess image (convert to grayscale) and low pass if necessary
-
   FloatImage fim = fimOrig;
-  
+
   //! Gaussian smoothing kernel applied to image (0 == no filter).
   /*! Used when sampling bits. Filtering is a good idea in cases
    * where A) a cheap camera is introducing artifical sharpening, B)
@@ -123,13 +120,11 @@ namespace AprilTags {
     std::vector<float> filt = Gaussian::makeGaussianFilter(sigma, filtsz);
     fim.filterFactoredCentered(filt, filt);
   }
-
   //================================================================
   // Step two: Compute the local gradient. We store the direction and magnitude.
   // This step is quite sensitve to noise, since a few bad theta estimates will
   // break up segments, causing us to miss Quads. It is useful to do a Gaussian
   // low pass on this step even if we don't want it for encoding.
-
   FloatImage fimSeg;
   if (segSigma > 0) {
     if (segSigma == sigma) {
@@ -147,7 +142,7 @@ namespace AprilTags {
 
   FloatImage fimTheta(fimSeg.getWidth(), fimSeg.getHeight());
   FloatImage fimMag(fimSeg.getWidth(), fimSeg.getHeight());
-  
+
 
   #pragma omp parallel for
   for (int y = 1; y < fimSeg.getHeight()-1; y++) {
@@ -161,7 +156,7 @@ namespace AprilTags {
 #else
       float theta = atan2(Iy, Ix);
 #endif
-      
+
       fimTheta.set(x, y, theta);
       fimMag.set(x, y, mag);
     }
@@ -187,13 +182,12 @@ namespace AprilTags {
     }
   }
 #endif
-
   //================================================================
   // Step three. Extract edges by grouping pixels with similar
   // thetas together. This is a greedy algorithm: we start with
   // the most similar pixels.  We use 4-connectivity.
   UnionFindSimple uf(fimSeg.getWidth()*fimSeg.getHeight());
-  
+
   vector<Edge> edges(width*height*4);
   size_t nEdges = 0;
 
@@ -209,37 +203,36 @@ namespace AprilTags {
     float * tmax = &storage[width*height*1];
     float * mmin = &storage[width*height*2];
     float * mmax = &storage[width*height*3];
-                  
+
     for (int y = 0; y+1 < height; y++) {
       for (int x = 0; x+1 < width; x++) {
-                                  
+
         float mag0 = fimMag.get(x,y);
         if (mag0 < Edge::minMag)
           continue;
         mmax[y*width+x] = mag0;
         mmin[y*width+x] = mag0;
-                                  
+
         float theta0 = fimTheta.get(x,y);
         tmin[y*width+x] = theta0;
         tmax[y*width+x] = theta0;
-                                  
+
         // Calculates then adds edges to 'vector<Edge> edges'
         Edge::calcEdges(theta0, x, y, fimTheta, fimMag, edges, nEdges);
-                                  
+
         // XXX Would 8 connectivity help for rotated tags?
         // Probably not much, so long as input filtering hasn't been disabled.
       }
     }
-                  
+
     edges.resize(nEdges);
     std::stable_sort(edges.begin(), edges.end());
     Edge::mergeEdges(edges,uf,tmin,tmax,mmin,mmax);
   }
-          
+
   //================================================================
   // Step four: Loop over the pixels again, collecting statistics for each cluster.
   // We will soon fit lines (segments) to these points.
-
   map<int, vector<XYWeight> > clusters;
   for (int y = 0; y+1 < fimSeg.getHeight(); y++) {
     for (int x = 0; x+1 < fimSeg.getWidth(); x++) {
@@ -247,7 +240,7 @@ namespace AprilTags {
 	continue;
 
       int rep = (int) uf.getRepresentative(y*fimSeg.getWidth()+x);
-     
+
       map<int, vector<XYWeight> >::iterator it = clusters.find(rep);
       if ( it == clusters.end() ) {
 	clusters[rep] = vector<XYWeight>();
@@ -290,7 +283,7 @@ namespace AprilTags {
     float flip = 0, noflip = 0;
     for (unsigned int i = 0; i < points.size(); i++) {
       XYWeight xyw = points[i];
-      
+
       float theta = fimTheta.get((int) xyw.x, (int) xyw.y);
       float mag = fimMag.get((int) xyw.x, (int) xyw.y);
 
@@ -335,23 +328,22 @@ namespace AprilTags {
   }
 #endif
 #endif
-
   // Step six: For each segment, find segments that begin where this segment ends.
   // (We will chain segments together next...) The gridder accelerates the search by
   // building (essentially) a 2D hash table.
   Gridder<Segment> gridder(0,0,width,height,10);
-  
+
   // add every segment to the hash table according to the position of the segment's
   // first point. Remember that the first point has a specific meaning due to our
   // left-hand rule above.
   for (unsigned int i = 0; i < segments.size(); i++) {
     gridder.add(segments[i].getX0(), segments[i].getY0(), &segments[i]);
   }
-  
+
   // Now, find child segments that begin where each parent segment ends.
   for (unsigned i = 0; i < segments.size(); i++) {
     Segment &parentseg = segments[i];
-      
+
     //compute length of the line segment
     GLine2D parentLine(std::pair<float,float>(parentseg.getX0(), parentseg.getY0()),
 		       std::pair<float,float>(parentseg.getX1(), parentseg.getY1()));
@@ -384,12 +376,11 @@ namespace AprilTags {
       parentseg.children.push_back(&child);
     }
   }
-
   //================================================================
   // Step seven: Search all connected segments to see if any form a loop of length 4.
   // Add those to the quads list.
   vector<Quad> quads;
-  
+
   vector<Segment*> tmp(5);
   for (unsigned int i = 0; i < segments.size(); i++) {
     tmp[0] = &segments[i];
@@ -426,7 +417,6 @@ namespace AprilTags {
   // Step eight. Decode the quads. For each quad, we first estimate a
   // threshold color to decide between 0 and 1. Then, we read off the
   // bits and see if they make sense.
-
   std::vector<TagDetection> detections;
 
   for (unsigned int qi = 0; qi < quads.size(); qi++ ) {
@@ -541,7 +531,6 @@ namespace AprilTags {
   //broken lines. When two quads (with the same id) overlap, we will
   //keep the one with the lowest error, and if the error is the same,
   //the one with the greatest observed perimeter.
-
   std::vector<TagDetection> goodDetections;
 
   // NOTE: allow multiple non-overlapping detections of the same target.
@@ -579,7 +568,6 @@ namespace AprilTags {
 
   //cout << "AprilTags: edges=" << nEdges << " clusters=" << clusters.size() << " segments=" << segments.size()
   //     << " quads=" << quads.size() << " detections=" << detections.size() << " unique tags=" << goodDetections.size() << endl;
-
   return goodDetections;
 }
 

@@ -721,7 +721,7 @@ inline double hypot(double a, double b) {
 /// These functions were developed with the help of Lionel Heng and the excellent camodocal
 /// https://github.com/hengli/camodocal
 template<typename DISTORTION_T>
-bool OmniProjection<DISTORTION_T>::initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations) {
+bool OmniProjection<DISTORTION_T>::initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations, std::optional<double> fallback_focal_length) {
   using detail::square;
   using detail::hypot;
 
@@ -831,6 +831,17 @@ bool OmniProjection<DISTORTION_T>::initializeIntrinsics(const std::vector<GridCa
       }
     }  // For each row in the image.
   } //For each image
+
+  if (!success) {
+    if (fallback_focal_length.has_value()) {
+      gamma0 = fallback_focal_length.value();
+      SM_WARN_STREAM("Initialization of focal length failed. Using fallback focal length: " << gamma0);
+    }
+    else {
+      SM_ERROR("Initialization of focal length failed. And no fallback focal length provided.");
+      return false;
+    }
+  }
 
   //set the parameters
   _fu = gamma0;

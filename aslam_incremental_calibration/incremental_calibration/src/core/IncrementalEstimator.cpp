@@ -358,6 +358,22 @@ namespace aslam {
       auto linearSolver = _optimizer->getSolver<LinearSolver>();
       linearSolver->setMargStartIndex(static_cast<std::ptrdiff_t>(JCols - dim));
 
+      if (_options.verbose) {
+        std::cout << "\n[IncrementalEstimator::addBatch] Marginalization Setup:" << std::endl;
+        std::cout << "  Total Jacobian columns (JCols): " << JCols << std::endl;
+        std::cout << "  Marginalization group ID: " << _margGroupId << std::endl;
+        std::cout << "  Marginalization group dimension (dim): " << dim << std::endl;
+        std::cout << "  Marginalization start index: " << (JCols - dim) << std::endl;
+        std::cout << "  Number of design variables in problem: " << _problem->numDesignVariables() << std::endl;
+        std::cout << "  Number of error terms in problem: " << _problem->numErrorTerms() << std::endl;
+        std::cout << "  Groups ordering: ";
+        for (auto it = _problem->getGroupsOrdering().cbegin();
+            it != _problem->getGroupsOrdering().cend(); ++it) {
+          std::cout << *it << " (dim=" << _problem->getGroupDim(*it) << ") ";
+        }
+        std::cout << std::endl;
+      }
+
       // optimize
       aslam::backend::SolutionReturnValue srv = _optimizer->optimize();
 
@@ -411,6 +427,34 @@ namespace aslam {
       const double svLog2Sum = linearSolver->getSingularValuesLog2Sum();
       ret.informationGain = 0.5 * (svLog2Sum - _svLog2Sum);
 
+      // Log batch attempt details
+      if (_options.verbose) {
+        std::cout << "\n[IncrementalEstimator::addBatch] Batch #" << _problem->getNumOptimizationProblems() << std::endl;
+        std::cout << "  Information Gain: " << ret.informationGain
+                  << " (Threshold: " << _options.infoGainDelta << ")" << std::endl;
+        std::cout << "  svLog2Sum: current=" << svLog2Sum << ", previous=" << _svLog2Sum << std::endl;
+        std::cout << "  Rank Theta: " << ret.rankTheta
+                  << " (Previous: " << _rankTheta << ", Deficiency: " << ret.rankThetaDeficiency << ")" << std::endl;
+        std::cout << "  Rank Psi: " << ret.rankPsi
+                  << " (Deficiency: " << ret.rankPsiDeficiency << ")" << std::endl;
+        std::cout << "  Cost: " << ret.JStart << " -> " << ret.JFinal
+                  << " (Iterations: " << ret.numIterations << ")" << std::endl;
+        std::cout << "  Solution Valid: " << (solutionValid ? "YES" : "NO");
+        if (!solutionValid) {
+          std::cout << " (";
+          if (ret.numIterations == _optimizer->options().maxIterations)
+            std::cout << "Max iterations";
+          if (ret.JFinal >= ret.JStart) {
+            if (ret.numIterations == _optimizer->options().maxIterations)
+              std::cout << ", ";
+            std::cout << "Cost did not decrease";
+          }
+          std::cout << ")";
+        }
+        std::cout << std::endl;
+        std::cout << "  Forced: " << (force ? "YES" : "NO") << std::endl;
+      }
+
       // batch is kept? information gain improvement or rank goes up or force
       bool keepBatch = false;
       if (((ret.informationGain > _options.infoGainDelta ||
@@ -448,6 +492,22 @@ namespace aslam {
         _finalCost = srv.JFinal;
       }
       ret.batchAccepted = keepBatch;
+
+      // Log acceptance decision
+      if (_options.verbose) {
+        std::cout << "  Decision: " << (keepBatch ? "ACCEPTED" : "REJECTED");
+        if (!keepBatch) {
+          std::cout << " (Reason: ";
+          if (!solutionValid) {
+            std::cout << "Invalid solution";
+          } else if (ret.informationGain <= _options.infoGainDelta && ret.rankTheta <= _rankTheta) {
+            std::cout << "Insufficient information gain (" << ret.informationGain
+                      << " <= " << _options.infoGainDelta << ") and no rank improvement";
+          }
+          std::cout << ")";
+        }
+        std::cout << std::endl;
+      }
 
       // remove batch if necessary
       if (!keepBatch) {

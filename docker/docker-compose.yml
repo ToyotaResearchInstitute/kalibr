@@ -1,7 +1,10 @@
 services:
   kalibr:
     build:
-      context: .
+      context: ..
+      dockerfile: docker/Dockerfile
+
+    image: kalibr:latest
 
     tty: true
     stdin_open: true
@@ -10,3 +13,37 @@ services:
 
     volumes:
       - ../:/kalibr
+
+  kalibr_ros_no_gpu:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ros
+
+    image: kalibr_ros:latest
+
+    tty: true
+    stdin_open: true
+
+    working_dir: /kalibr
+
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+
+    volumes:
+      - ../:/kalibr
+
+  kalibr_ros:
+    extends: kalibr_ros_no_gpu
+
+    runtime: nvidia
+
+    environment:
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - XAUTHORITY=/root/.Xauthority
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+      - NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:-all}
+
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - $HOME/.Xauthority:/root/.Xauthority

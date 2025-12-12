@@ -21,7 +21,7 @@ namespace cameras {
 
 /**
  * \class CameraGeometry
- * 
+ *
  * A camera geometry class based on three configurable policies:
  * 1. a lens type that determines the geometry of the camera
  * 2. a shutter type that determines the timing of each pixel.
@@ -270,6 +270,11 @@ class CameraGeometry : public CameraGeometryBase {
   /// \brief initialize the intrinsics based on a list of views of a gridded calibration target
   /// \return true on success
   bool initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations);
+  /// \brief initialize the intrinsics based on a list of views of a gridded calibration target, with a fallback focal length.
+  /// \param observations the observations of the calibration target
+  /// \param fallback_focal_length if the focal length cannot be estimated from the observations,
+  /// \return true on success
+  bool initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations, std::optional<double> fallback_focal_length = std::nullopt);
 
   /// \brief estimate the transformation of the camera with respect to the calibration target
   ///        On success out_T_t_c is filled in with the transformation that takes points from
@@ -372,7 +377,7 @@ class CameraGeometry : public CameraGeometryBase {
 
   /// \brief This will create a frame with the right type. WARNING: it will not
   ///        fill in the camera geometry in the frame. This must be done manually
-  ///        outside the call.            
+  ///        outside the call.
   virtual boost::shared_ptr<FrameBase> createUninitializedFrameBase() const;
 
   /// \brief This will create a frame with the right type. WARNING: it will not

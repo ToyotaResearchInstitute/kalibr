@@ -1,0 +1,13 @@
+cameras:
+  camera_0:
+    model: 'pinhole-radtan'
+    focal_length_fallback: 881.0
+    source:
+      rosbag_path: '/kalibr/aslam_offline_calibration/kalibr2_ros/test/data/rosbag2_2025_06_11-12_00_21_0.mcap'
+      topic: '/BFS_25037058/image'
+  camera_1:
+    model: 'pinhole-radtan'
+    focal_length_fallback: 881.0
+    source:
+      rosbag_path: '/kalibr/aslam_offline_calibration/kalibr2_ros/test/data/rosbag2_2025_06_11-12_00_21_0.mcap'
+      topic: '/BFS_25037070/image'

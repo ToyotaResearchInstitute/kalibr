@@ -226,7 +226,7 @@ class PinholeProjection {
 
   /// \brief initialize the intrinsics based on a list of views of a gridded calibration target
   /// \return true on success
-  bool initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations);
+  bool initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations, std::optional<double> fallback_focal_length = std::nullopt);
 
   /// \brief compute the reprojection error based on a checkerboard observation.
   /// \return the number of corners successfully observed and projected

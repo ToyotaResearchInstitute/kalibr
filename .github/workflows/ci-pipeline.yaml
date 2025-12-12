@@ -2,13 +2,32 @@ name: CI pipeline
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, dev/kalibr2 ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, dev/kalibr2 ]
 
 jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          cache: pip
+
+      - name: Install python packages
+        run: pip install pre-commit
+
+      # Complete the files section to include all relevant files
+      # Prevent running the linter on old code, to maintain the history clean
+      - name: Lint
+        run: pre-commit run --all-files --verbose --show-diff-on-failure
+
   build_and_test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout repository
@@ -21,5 +40,5 @@ jobs:
 
       - name: Build And Test Packages
         run: |
-          docker compose run --rm kalibr ./tools/build_and_test.sh
+          docker compose run --rm kalibr_ros_no_gpu ./tools/build_and_test.sh
         working-directory: ./docker

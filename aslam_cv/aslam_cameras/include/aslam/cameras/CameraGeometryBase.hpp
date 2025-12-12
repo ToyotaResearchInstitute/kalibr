@@ -90,6 +90,11 @@ class CameraGeometryBase {
   /// \brief initialize the intrinsics based on a list of views of a gridded calibration target
   /// \return true on success
   virtual bool initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations) = 0;
+  /// \brief initialize the intrinsics based on a list of views of a gridded calibration target, with a fallback focal length.
+  /// \param observations the observations of the calibration target
+  /// \param fallback_focal_length if the focal length cannot be estimated from the observations,
+  /// \return true on success
+  virtual bool initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations, std::optional<double> fallback_focal_length) = 0;
 
   /// \brief estimate the transformation of the camera with respect to the calibration target
   ///        On success out_T_t_c is filled in with the transformation that takes points from
@@ -107,7 +112,7 @@ class CameraGeometryBase {
 
   /// \brief create an uninitialized frame base object. This object has the right
   ///        type for the underlying camera system but does not have the camera system
-  ///        set. 
+  ///        set.
   virtual boost::shared_ptr<FrameBase> createUninitializedFrameBase() const = 0;
 
   // The amount of time elapsed between the start of the image and the

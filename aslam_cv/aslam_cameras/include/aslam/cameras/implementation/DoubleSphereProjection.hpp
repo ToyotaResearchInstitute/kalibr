@@ -782,14 +782,14 @@ void DoubleSphereProjection<DISTORTION_T>::resizeIntrinsics(double scale) {
 /// \brief initialize the intrinsics based on one view of a gridded calibration target
 /// \return true on success
 template<typename DISTORTION_T>
-bool DoubleSphereProjection<DISTORTION_T>::initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations) {
+bool DoubleSphereProjection<DISTORTION_T>::initializeIntrinsics(const std::vector<GridCalibrationTargetObservation> &observations, std::optional<double> fallback_focal_length) {
 
   SM_DEFINE_EXCEPTION(Exception, std::runtime_error);
   SM_ASSERT_TRUE(Exception, observations.size() != 0, "Need min. one observation");
 
   // use the implementation in OmniProjection
   OmniProjection<DISTORTION_T> omni(1, _fu, _fv, _cu, _cv, _ru, _rv);
-  bool success = omni.initializeIntrinsics(observations);
+  bool success = omni.initializeIntrinsics(observations, fallback_focal_length);
 
   if(success) {
     // initial guess: spheres coincide
