@@ -21,14 +21,17 @@ using kalibr2::ros::CalibrationConfig;
 using kalibr2::ros::CameraConfig;
 
 std::vector<aslam::cameras::GridCalibrationTargetObservation> get_observations_from_camera(
-    kalibr2::ImageReader& reader, const aslam::cameras::GridDetector& detector, size_t min_num_observations,
+    kalibr2::ImageReader& reader, const aslam::cameras::GridDetector& detector, std::optional<size_t> max_observations,
     const std::string& camera_name) {
   std::vector<aslam::cameras::GridCalibrationTargetObservation> observations;
   const size_t message_count = reader.MessageCount();
   size_t images_processed = 0;
 
-  std::cout << "[" << camera_name << "] Starting observation extraction from " << message_count << " images"
-            << std::endl;
+  std::cout << "[" << camera_name << "] Starting observation extraction from " << message_count << " images";
+  if (max_observations.has_value()) {
+    std::cout << " (target: " << max_observations.value() << " observations)";
+  }
+  std::cout << std::endl;
 
   while (reader.HasNext()) {
     kalibr2::Image img = reader.ReadNext();
@@ -45,9 +48,9 @@ std::vector<aslam::cameras::GridCalibrationTargetObservation> get_observations_f
               << (images_processed > 0 ? (100.0 * observations.size() / images_processed) : 0.0) << "% detected)"
               << std::flush;
 
-    if (observations.size() >= min_num_observations) {
+    if (max_observations.has_value() && observations.size() >= max_observations.value()) {
       std::cout << std::endl;
-      std::cout << "[" << camera_name << "] Reached target of " << min_num_observations
+      std::cout << "[" << camera_name << "] Reached target of " << max_observations.value()
                 << " observations after processing " << images_processed << " images" << std::endl;
       break;
     }
@@ -85,6 +88,16 @@ int main(int argc, char** argv) {
       "The tolerance on the mutual information for adding an image. Higher means fewer images will be added. "
       "Use -1 to force all images.");
 
+  std::optional<size_t> max_batches;
+  app.add_option("--max-batches", max_batches,
+                 "Maximum number of batches to accept during incremental calibration. If not specified, all batches "
+                 "will be processed.");
+
+  std::optional<size_t> max_observations;
+  app.add_option("--max-observations", max_observations,
+                 "Maximum number of target observations to extract per camera. If not specified, all observations will "
+                 "be extracted.");
+
   bool verbose = false;
   app.add_flag("--verbose", verbose, "Enable verbose output during calibration.");
 
@@ -103,9 +116,7 @@ int main(int argc, char** argv) {
   std::vector<std::vector<aslam::cameras::GridCalibrationTargetObservation>> observations_by_camera;
   observations_by_camera.resize(camera_calibrators.size());
 
-  // Use multithreading to fill observations_by_camera in parallel (same pattern as MultiThreadReading).
-  // const size_t max_observations = 20000;
-  const size_t max_observations = 5100;
+  // Use multithreading to fill observations_by_camera in parallel.
   std::vector<std::thread> threads;
   threads.reserve(camera_calibrators.size());
 
@@ -273,12 +284,19 @@ int main(int argc, char** argv) {
   // std::random_shuffle(synced_sets.begin(), synced_sets.end());
   std::vector<kalibr2::tools::BatchProblemStruct> batch_problems;
   size_t accepted_batches = 0;
+  size_t processed_batches = 0;
   for (auto& synced_set : synced_sets) {
+    if (max_batches.has_value() && accepted_batches >= max_batches.value()) {
+      std::cout << "Reached maximum number of accepted batches (" << max_batches.value() << "). Stopping." << std::endl;
+      break;
+    }
+
     auto T_tc_guess = kalibr2::tools::getTargetPoseGuess(camera_calibrators, synced_set, baselines);
     auto batch_problem_struct =
         kalibr2::tools::CreateBatchProblem(camera_calibrators, synced_set, T_tc_guess, baseline_pose_dvs, landmark_dvs);
     auto batch_return_value = estimator.addBatch(batch_problem_struct.problem);
-    // std::cout << "Attempt to add batch" << std::endl;
+    processed_batches++;
+
     if (batch_return_value.numIterations > optimizer_options.maxIterations) {
       throw std::runtime_error("Optimizer reached max iterations. Something went wrong.");
     }
@@ -290,7 +308,8 @@ int main(int argc, char** argv) {
       std::cout << "Batch rejected." << std::endl;
     }
   }
-  std::cout << "Accepted " << accepted_batches << " out of " << synced_sets.size() << " batches." << std::endl;
+  std::cout << "Accepted " << accepted_batches << " batches (processed " << processed_batches << " out of "
+            << synced_sets.size() << " total)." << std::endl;
 
   std::cout << "\n--- Final Camera Parameters ---" << std::endl;
   for (size_t i = 0; i < camera_calibrators.size(); ++i) {
