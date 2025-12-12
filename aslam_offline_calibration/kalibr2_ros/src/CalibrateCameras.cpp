@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
 
   // Use multithreading to fill observations_by_camera in parallel (same pattern as MultiThreadReading).
   // const size_t max_observations = 20000;
-  const size_t max_observations = 10;
+  const size_t max_observations = 5100;
   std::vector<std::thread> threads;
   threads.reserve(camera_calibrators.size());
 
@@ -221,8 +221,31 @@ int main(int argc, char** argv) {
 
   // |||| (END) THIS IS WHERE THE original call calls getInitialGuesses to get the baselines ||||
 
-  // | ----
-  constexpr int CALIBRATION_GROUP_ID = 0;
+  // | ---- Initialize shared design variables (created once, reused across all batches) ----|
+  // 1. Create baseline design variables (SHARED across all batches)
+  std::vector<kalibr2::tools::PoseDesignVariables> baseline_pose_dvs;
+  for (const auto& baseline : baselines) {
+    // Create design variables for the rotation and translation
+    auto q_Dv = boost::make_shared<aslam::backend::RotationQuaternion>(baseline.q());
+    q_Dv->setActive(true);
+
+    auto t_Dv = boost::make_shared<aslam::backend::EuclideanPoint>(baseline.t());
+    t_Dv->setActive(true);
+
+    auto transformation =
+        boost::make_shared<aslam::backend::TransformationBasic>(q_Dv->toExpression(), t_Dv->toExpression());
+
+    baseline_pose_dvs.push_back({q_Dv, t_Dv, transformation});
+  }
+
+  // 2. Create landmark design variables (SHARED across all batches)
+  std::vector<boost::shared_ptr<aslam::backend::HomogeneousPoint>> landmark_dvs;
+  for (size_t i = 0; i < config.target->size(); ++i) {
+    landmark_dvs.push_back(
+        boost::make_shared<aslam::backend::HomogeneousPoint>(sm::kinematics::toHomogeneous(config.target->point(i))));
+  }
+
+  // | ---- Setup incremental estimator ----|
   auto ic_options = aslam::calibration::IncrementalEstimator::Options();
   ic_options.infoGainDelta = mutual_information_tolerance;
   ic_options.checkValidity = true;
@@ -235,21 +258,25 @@ int main(int argc, char** argv) {
 
   auto optimizer_options = aslam::backend::Optimizer2Options();
   // original code maxes the number based on available cores
-  optimizer_options.maxIterations = 50;
-  optimizer_options.nThreads = 1;
+  optimizer_options.maxIterations = 20;
+  optimizer_options.nThreads = 16;
   optimizer_options.verbose = verbose;
+
+  // This must match the CALIBRATION_GROUP_ID used in CalibrationTools.hpp
+  // TODO(frneer): make this code live in a single location to avoid mismatches
+  constexpr int CALIBRATION_GROUP_ID = 0;
+
   auto estimator = aslam::calibration::IncrementalEstimator(CALIBRATION_GROUP_ID, ic_options, linear_solver_options,
                                                             optimizer_options);
 
   // TODO(frneer): randomize the order of sync sets on request
   // std::random_shuffle(synced_sets.begin(), synced_sets.end());
-  // std::vector<boost::shared_ptr<aslam::calibration::OptimizationProblem>> batch_problems;
-  // TODO(frneer): Do we need to store every item of the structs?
   std::vector<kalibr2::tools::BatchProblemStruct> batch_problems;
+  size_t accepted_batches = 0;
   for (auto& synced_set : synced_sets) {
-    auto T_tc_guess = kalibr2::tools::getTargetPoseGuess(camera_calibrators, synced_set, baseline_guesses);
+    auto T_tc_guess = kalibr2::tools::getTargetPoseGuess(camera_calibrators, synced_set, baselines);
     auto batch_problem_struct =
-        kalibr2::tools::CreateBatchProblem(camera_calibrators, synced_set, T_tc_guess, baseline_guesses, config.target);
+        kalibr2::tools::CreateBatchProblem(camera_calibrators, synced_set, T_tc_guess, baseline_pose_dvs, landmark_dvs);
     auto batch_return_value = estimator.addBatch(batch_problem_struct.problem);
     // std::cout << "Attempt to add batch" << std::endl;
     if (batch_return_value.numIterations > optimizer_options.maxIterations) {
@@ -258,12 +285,12 @@ int main(int argc, char** argv) {
 
     batch_problems.push_back(batch_problem_struct);
     if (batch_return_value.batchAccepted) {
-      //   std::cout << "Batch accepted. Information gain: " << batch_return_value.informationGain << std::endl;
-      // batch_problems.push_back(batch_problem_struct.problem);
+      accepted_batches++;
     } else {
-      //   std::cout << "Batch rejected." << std::endl;
+      std::cout << "Batch rejected." << std::endl;
     }
   }
+  std::cout << "Accepted " << accepted_batches << " out of " << synced_sets.size() << " batches." << std::endl;
 
   std::cout << "\n--- Final Camera Parameters ---" << std::endl;
   for (size_t i = 0; i < camera_calibrators.size(); ++i) {
@@ -280,24 +307,31 @@ int main(int argc, char** argv) {
     std::cout << "Exported calibration to: " << output_filepath << std::endl;
   }
 
-  // Export all extrinsics
-  if (baseline_guesses.size() == 1) {
+  // Export all extrinsics (use the optimized baselines from the DVs)
+  std::vector<sm::kinematics::Transformation> optimized_baselines;
+  for (const auto& pose_dv : baseline_pose_dvs) {
+    // Get the transformation matrix from the expression and convert to sm::kinematics::Transformation
+    optimized_baselines.push_back(
+        sm::kinematics::Transformation(pose_dv.transformation->toExpression().toTransformationMatrix()));
+  }
+
+  if (optimized_baselines.size() == 1) {
     // Single transform - export as TransformStamped
     std::string transform_filename =
         "transform_" + config.cameras[0].camera_name + "_to_" + config.cameras[1].camera_name + ".yaml";
     std::string transform_filepath = output_dir + "/" + transform_filename;
-    auto tf_msg = kalibr2::ros::TransformationToROS(baseline_guesses[0],
+    auto tf_msg = kalibr2::ros::TransformationToROS(optimized_baselines[0],
                                                     {config.cameras[0].camera_name, config.cameras[1].camera_name});
     kalibr2::ros::transformStampedToYAML(tf_msg, transform_filepath);
     std::cout << "Exported transform to: " << transform_filepath << std::endl;
   } else {
     // Multiple transforms - export as TFMessage
     std::vector<std::pair<std::string, std::string>> frames;
-    for (size_t i = 0; i < baseline_guesses.size(); ++i) {
+    for (size_t i = 0; i < optimized_baselines.size(); ++i) {
       frames.emplace_back(config.cameras[i].camera_name, config.cameras[i + 1].camera_name);
     }
 
-    auto tf_message = kalibr2::ros::TransformationsToTFMessage(baseline_guesses, frames);
+    auto tf_message = kalibr2::ros::TransformationsToTFMessage(optimized_baselines, frames);
     std::string tf_message_filepath = output_dir + "/camera_chain_transforms.yaml";
     kalibr2::ros::tfMessageToYAML(tf_message, tf_message_filepath);
     std::cout << "Exported all transforms to: " << tf_message_filepath << std::endl;
