@@ -83,10 +83,9 @@ int main(int argc, char** argv) {
                  "Tolerance for approximate synchronization of observations across cameras (in seconds).");
 
   double mutual_information_tolerance = 0.2;
-  app.add_option(
-      "--mi-tol", mutual_information_tolerance,
-      "The tolerance on the mutual information for adding an image. Higher means fewer images will be added. "
-      "Use -1 to force all images.");
+  app.add_option("--mi-tol", mutual_information_tolerance,
+                 "The tolerance on the mutual information for adding an image in the incremental calibration. Higher "
+                 "means fewer images will be added. Use -1 to force all images.");
 
   std::optional<size_t> max_batches;
   app.add_option("--max-batches", max_batches,
