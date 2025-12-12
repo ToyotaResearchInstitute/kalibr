@@ -443,42 +443,49 @@ std::vector<boost::shared_ptr<aslam::backend::HomogeneousPoint>> getLandmarkDesi
   return landmark_dvs;
 }
 
+struct PoseDesignVariables {
+  boost::shared_ptr<aslam::backend::RotationQuaternion> rotation;
+  boost::shared_ptr<aslam::backend::EuclideanPoint> translation;
+  boost::shared_ptr<aslam::backend::TransformationBasic> transformation;
+};
+
 struct BatchProblemStruct {
   boost::shared_ptr<aslam::calibration::OptimizationProblem> problem;
   std::vector<boost::shared_ptr<aslam::backend::TransformationBasic>> baseline_dvs;
   boost::shared_ptr<aslam::backend::TransformationBasic> target_pose_dv;
   std::vector<boost::shared_ptr<aslam::backend::HomogeneousPoint>> landmark_dvs;
+  std::vector<PoseDesignVariables> baseline_pose_dvs;  // NEW: Store underlying DVs for reuse
 };
 
 BatchProblemStruct CreateBatchProblem(
     const std::vector<boost::shared_ptr<kalibr2::CameraCalibratorBase>>& camera_calibrators,
     const SyncedSet& synced_set, const sm::kinematics::Transformation& T_tc_guess,
-    const std::vector<sm::kinematics::Transformation>& baseline_guesses,
-    const aslam::cameras::GridCalibrationTargetBase::Ptr& target) {
-  // TODO(frneer): Some methods, like AddPoseDesignVariable expect a shared_ptr.
-  // But passing shared_ptr around prevents copy elision. So... can we user refs?
+    const std::vector<PoseDesignVariables>& baseline_pose_dvs,
+    const std::vector<boost::shared_ptr<aslam::backend::HomogeneousPoint>>& landmark_dvs) {
   auto problem = boost::make_shared<aslam::calibration::OptimizationProblem>();
-  constexpr int TRANSFORMATION_GROUP_ID = 0;
-  constexpr int CALIBRATION_GROUP_ID = 1;
-  constexpr int LANDMARK_GROUP_ID = 2;
-  // Maybe T_tc_guess should be computed inside this same function, check if it's used outside.
+  constexpr int CALIBRATION_GROUP_ID = 0;     // Baselines & intrinsics (optimized by estimator)
+  constexpr int TRANSFORMATION_GROUP_ID = 1;  // Target poses (different per batch)
+  constexpr int LANDMARK_GROUP_ID = 2;        // Calibration target points
 
-  // 1. Add target pose design variable
-  auto T_tc_guess_dv = AddPoseDesignVariable(problem, T_tc_guess, false, TRANSFORMATION_GROUP_ID);
+  // 1. Add target pose design variable (for each batch - each view has different target pose)
+  auto T_tc_guess_dv = AddPoseDesignVariable(problem, T_tc_guess, true, TRANSFORMATION_GROUP_ID);
 
-  // 2. Add all baseline and target pose design variables
+  // 2. Add baseline design variables (SHARED across batches)
   std::vector<boost::shared_ptr<aslam::backend::TransformationBasic>> baseline_dvs;
-  for (const auto& baseline : baseline_guesses) {
-    baseline_dvs.push_back(AddPoseDesignVariable(problem, baseline, true, CALIBRATION_GROUP_ID));
+  for (const auto& pose_dv : baseline_pose_dvs) {
+    // Add the rotation and translation design variables to this problem
+    problem->addDesignVariable(pose_dv.rotation, CALIBRATION_GROUP_ID);
+    problem->addDesignVariable(pose_dv.translation, CALIBRATION_GROUP_ID);
+    // Store the transformation expression for building the pose chain
+    baseline_dvs.push_back(pose_dv.transformation);
   }
 
-  // 3. Add landmark design variables
-  auto landmark_dvs = getLandmarkDesignVariables(problem, target);
+  // 3. Add pre-existing landmark design variables (SHARED across batches)
   for (const auto& landmark : landmark_dvs) {
     problem->addDesignVariable(landmark, LANDMARK_GROUP_ID);
   }
 
-  // 4. Add camera intrinsic design variables
+  // 4. Add camera intrinsic design variables (SHARED across batches)
   for (const auto& calibrator : camera_calibrators) {
     calibrator->AddIntrinsicDesignVariables(problem, CALIBRATION_GROUP_ID);
   }
@@ -509,6 +516,7 @@ BatchProblemStruct CreateBatchProblem(
   batch_problem_struct.baseline_dvs = baseline_dvs;
   batch_problem_struct.target_pose_dv = T_tc_guess_dv;
   batch_problem_struct.landmark_dvs = landmark_dvs;
+  batch_problem_struct.baseline_pose_dvs = baseline_pose_dvs;
   return batch_problem_struct;
 }
 

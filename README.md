@@ -20,7 +20,7 @@ docker compose build kalibr2_ros
 docker compose run kalibr2_ros
 ```
 
-## Building on Ubuntu 24.04
+## Build it directly on Ubuntu 24.04 (noble)
 
 ### Prerequisites
 - **ROS 2 Jazzy Desktop** - Install following the [official ROS 2 installation instructions](https://docs.ros.org/en/jazzy/Installation.html)
@@ -33,13 +33,8 @@ sudo apt update && sudo apt install -y $(cat /tmp/packages.txt)
 
 ### Build
 ```bash
-# Source ROS 2 environment
 source /opt/ros/jazzy/setup.bash
-
-# Build with colcon
 colcon build
-
-# Source the workspace
 source install/setup.bash
 ```
 
@@ -54,6 +49,9 @@ ros2 run kalibr2_ros kalibr_calibrate_cameras \
 ```
 
 ### Calibration file example
+The following example describes a calibration configuration for a stereo pair using the `pinhole` camera model with radial tangential distortion model.
+
+It consumes a dataset from a recorded rosbag with an aprilgrid target of 6x5 tags and the corresponding sizes.
 
 ```yaml
 board:
@@ -79,10 +77,36 @@ cameras:
 ```
 
 ### Output files
-Calibration results are exported as:
-- `calibration_camera_name.yaml` - Camera intrinsics in ROS CameraInfo format
-- `transform_camera_0_to_camera_1.yaml` - Extrinsic transform (for 2-camera systems)
-- `camera_chain_transforms.yaml` - All extrinsic transforms in TF2 format (for multi-camera systems)
+The calibration files are generated after a succesful run as follows.
+
+#### Intrinsics
+- `calibration_<camera_name>.yaml` - Camera intrinsics in ROS [CameraInfo](https://docs.ros2.org/latest/api/sensor_msgs/msg/CameraInfo.html) format.
+
+#### Extrinsics
+- For 2-camera systems: `transform_<camera_0>_to_<camera_1>.yaml` - Baseline transform in ROS [TransformStamped](https://docs.ros.org/en/jazzy/p/geometry_msgs/msg/TransformStamped.html) format.
+- For multi-camera systems
+`camera_chain_transforms.yaml` - Chain of baselines transforms in ROS [TFMessage](https://docs.ros.org/en/jazzy/p/tf2_msgs/msg/TFMessage.html) format.
+
+## Extended parameters
+There a number of configurations available in the tool that might come in handful.
+
+```
+kalibr_calibrate_cameras - Calibrate multiple cameras from ROS bag data
+Usage: /home/frn/kalibr/install/kalibr2_ros/lib/kalibr2_ros/kalibr_calibrate_cameras [OPTIONS]
+
+Options:
+  -h,--help                   Print this help message and exit
+  -c,--config TEXT:FILE REQUIRED
+                              Full path to calibration configuration YAML file.
+  -o,--output-dir TEXT:DIR REQUIRED
+                              Directory to save the calibration results.
+  --approx-sync-tolerance FLOAT
+                              Tolerance for approximate synchronization of observations across cameras (in seconds).
+  --mi-tol FLOAT              The tolerance on the mutual information for adding an image. Higher means fewer images will be added. Use -1 to force all images.
+  --max-batches UINT          Maximum number of batches to accept during incremental calibration. If not specified, all batches will be processed.
+  --max-observations UINT     Maximum number of target observations to extract per camera. If not specified, all observations will be extracted.
+  --verbose                   Enable verbose output during calibration.
+```
 
 ## References
 
