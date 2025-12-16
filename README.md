@@ -16,8 +16,8 @@ This is a modernized version based on the original [Kalibr](https://github.com/e
 
 ```bash
 cd docker/
-docker compose build kalibr2_ros
-docker compose run kalibr2_ros
+docker compose build kalibr_ros
+docker compose run kalibr_ros
 ```
 
 ## Build it directly on Ubuntu 24.04 (noble)
@@ -28,7 +28,7 @@ docker compose run kalibr2_ros
 ### Install System Dependencies
 ```bash
 # Install all required packages
-sudo apt update && sudo apt install -y $(cat /tmp/packages.txt)
+sudo apt update && sudo apt install -y $(cat ./packages-ubuntu-24.04.txt)
 ```
 
 ### Build
