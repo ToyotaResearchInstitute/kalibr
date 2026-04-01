@@ -10,7 +10,7 @@ include(FetchContent)
 FetchContent_Declare(
   common_robotics_utilities
   GIT_REPOSITORY https://github.com/ToyotaResearchInstitute/common_robotics_utilities
-  GIT_TAG        origin/master
+  GIT_TAG        1d8fc9db7c15884c503532d853997cbb05fff25b
 )
 
 FetchContent_Populate(common_robotics_utilities)
