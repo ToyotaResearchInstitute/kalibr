@@ -32,7 +32,7 @@ std::vector<aslam::cameras::GridCalibrationTargetObservation> get_observations_f
     std::cout << " (target: " << max_observations.value() << " observations)";
   }
   std::cout << std::endl;
-
+  //PIPELINE::THE IMAGE IS BEING READ HERE 
   while (reader.HasNext()) {
     kalibr2::Image img = reader.ReadNext();
     images_processed++;
@@ -72,6 +72,8 @@ int main(int argc, char** argv) {
   app.add_option("-c,--config", bag_path, "Full path to calibration configuration YAML file.")
       ->required()
       ->check(CLI::ExistingFile);
+  std::string topic_name;
+  app.add_option("-t,--topic", topic_name,"Topic name for Camera Data");
 
   std::string output_dir;
   app.add_option("-o,--output-dir", output_dir, "Directory to save the calibration results.")
@@ -103,7 +105,7 @@ int main(int argc, char** argv) {
   CLI11_PARSE(app, argc, argv);
   // | --- User side setup --- |
   // "/kalibr/aslam_offline_calibration/kalibr2_ros/calibration_config.yaml"
-  CalibrationConfig config = kalibr2::ros::ConfigFromYaml(bag_path);
+  CalibrationConfig config = kalibr2::ros::ConfigFromYaml(bag_path, topic_name);
 
   std::vector<boost::shared_ptr<kalibr2::CameraCalibratorBase>> camera_calibrators;
   for (const auto& camera_config : config.cameras) {
