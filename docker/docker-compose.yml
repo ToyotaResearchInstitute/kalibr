@@ -13,6 +13,7 @@ services:
 
     volumes:
       - ../:/kalibr
+      - /home/kuartis/share:/data
 
   kalibr_ros_no_gpu:
     build:
@@ -47,3 +48,4 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - $HOME/.Xauthority:/root/.Xauthority
+      - /home/kuartis/share:/data
