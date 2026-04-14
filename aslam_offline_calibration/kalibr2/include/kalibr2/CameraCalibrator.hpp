@@ -17,6 +17,9 @@
 
 namespace kalibr2 {
 
+template <typename T>
+inline constexpr bool dependent_false_v = false;
+
 /// @brief Model-agnostic camera intrinsics for export.
 ///
 /// Contains the linear intrinsics and all non-linear parameters (distortion coefficients
@@ -174,7 +177,7 @@ class CameraCalibrator : public CameraCalibratorBase {
                          !std::is_same_v<CameraT, models::EquidistantPinhole> &&
                          !std::is_same_v<CameraT, models::EquidistantPinholeRs> &&
                          !std::is_same_v<CameraT, models::FovPinhole>) {
-      static_assert(sizeof(CameraT) == 0, "GetCameraInfoParams() not implemented for this camera model");
+      static_assert(dependent_false_v<CameraT>, "GetCameraInfoParams() not implemented for this camera model");
     }
 
     // Models that push extra scalars into d[] above (xi, alpha, beta) always use NoDistortion,
