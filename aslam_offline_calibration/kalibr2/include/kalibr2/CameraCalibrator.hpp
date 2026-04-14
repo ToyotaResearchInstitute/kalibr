@@ -1,5 +1,9 @@
 #pragma once
 
+#include <string>
+#include <type_traits>
+#include <vector>
+
 #include <aslam/backend/CameraDesignVariable.hpp>
 #include <aslam/backend/HomogeneousExpression.hpp>
 #include <aslam/backend/HomogeneousPoint.hpp>
@@ -12,6 +16,19 @@
 #include <kalibr2/CameraModels.hpp>
 
 namespace kalibr2 {
+
+template <typename T>
+inline constexpr bool dependent_false_v = false;
+
+/// @brief Model-agnostic camera intrinsics for export.
+///
+/// Contains the linear intrinsics and all non-linear parameters (distortion coefficients
+/// and model-specific scalars such as xi, alpha, beta) packed into d[]. The interpretation
+/// of d[] is format-specific and handled by the consuming layer (e.g. kalibr2_ros).
+struct CameraInfoParams {
+  double fx, fy, cx, cy;
+  std::vector<double> d;  // model-specific scalars (xi, alpha, beta) first, then distortion coefficients
+};
 
 /**
  * @brief Abstract base class for camera calibration.
@@ -79,6 +96,13 @@ class CameraCalibratorBase {
 
   virtual void PrintReprojectionErrorsMean() const = 0;
   virtual void PrintReprojectionErrorStatistics() const = 0;
+
+  /**
+   * @brief Extract calibrated intrinsics and non-linear parameters.
+   * @return CameraInfoParams with fx, fy, cx, cy and d[] containing model-specific
+   *         scalars (xi, alpha, beta) followed by distortion coefficients.
+   */
+  virtual CameraInfoParams GetCameraInfoParams() const = 0;
 };
 
 template <typename CameraT>
@@ -128,6 +152,43 @@ class CameraCalibrator : public CameraCalibratorBase {
   }
 
   boost::shared_ptr<aslam::cameras::CameraGeometryBase> camera_geometry() const { return camera_geometry_; }
+
+  CameraInfoParams GetCameraInfoParams() const override {
+    CameraInfoParams result;
+
+    const auto K = camera_geometry_->projection().getCameraMatrix();
+    result.fx = K(0, 0);
+    result.fy = K(1, 1);
+    result.cx = K(0, 2);
+    result.cy = K(1, 2);
+
+    // Non-pinhole models (Omni, DS, EUCM) pack model-specific scalars (xi, alpha, beta)
+    // into their projection vector with no uniform accessor to extract them separately.
+    // Named accessors (xi(), alpha(), beta()) are the only way to retrieve them.
+    if constexpr (std::is_same_v<CameraT, models::DoubleSphere>) {
+      result.d = {camera_geometry_->projection().xi(), camera_geometry_->projection().alpha()};
+    } else if constexpr (std::is_same_v<CameraT, models::ExtendedUnified>) {
+      result.d = {camera_geometry_->projection().alpha(), camera_geometry_->projection().beta()};
+    } else if constexpr (std::is_same_v<CameraT, models::Omni> || std::is_same_v<CameraT, models::DistortedOmni> ||
+                         std::is_same_v<CameraT, models::DistortedOmniRs>) {
+      result.d.push_back(camera_geometry_->projection().xi());
+    } else if constexpr (!std::is_same_v<CameraT, models::DistortedPinhole> &&
+                         !std::is_same_v<CameraT, models::DistortedPinholeRs> &&
+                         !std::is_same_v<CameraT, models::EquidistantPinhole> &&
+                         !std::is_same_v<CameraT, models::EquidistantPinholeRs> &&
+                         !std::is_same_v<CameraT, models::FovPinhole>) {
+      static_assert(dependent_false_v<CameraT>, "GetCameraInfoParams() not implemented for this camera model");
+    }
+
+    // Models that push extra scalars into d[] above (xi, alpha, beta) always use NoDistortion,
+    // so this appends nothing for them. For DistortedOmni it appends radtan coeffs after xi.
+    // If a custom distortion model is used, it should be handled here.
+    Eigen::MatrixXd dist;
+    camera_geometry_->projection().distortion().getParameters(dist);
+    for (int i = 0; i < dist.size(); ++i) result.d.push_back(dist(i));
+
+    return result;
+  }
 
  private:
   // Returning the designvariable and then passing it to another function makes the data types

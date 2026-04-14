@@ -30,70 +30,33 @@ void tfMessageToYAML(const tf2_msgs::msg::TFMessage& tf_message, const std::file
 void CalibratorToYAML(const boost::shared_ptr<CameraCalibratorBase>& calibrator, const std::string& model,
                       const std::string& frame_id, size_t width, size_t height,
                       const std::filesystem::path& yaml_file) {
-  // Get the camera geometry which stores the intrinsic parameters
-  auto camera_geometry = calibrator->camera_geometry();
+  const auto p = calibrator->GetCameraInfoParams();
 
-  // Get projection parameters (intrinsics)
-  Eigen::MatrixXd projection_params;
-  camera_geometry->getParameters(projection_params, true, false, false);
-
-  // Get distortion parameters
-  Eigen::MatrixXd distortion_params;
-  camera_geometry->getParameters(distortion_params, false, true, false);
-
-  // Create CameraInfo message
   sensor_msgs::msg::CameraInfo camera_info;
-
-  // Set frame ID
   camera_info.header.frame_id = frame_id;
-
-  // Set image dimensions
   camera_info.width = width;
   camera_info.height = height;
 
-  // Assuming pinhole model: projection_params contains [fx, fy, cx, cy]
   // K = [fx  0  cx]
   //     [ 0 fy  cy]
   //     [ 0  0   1]
-  if (projection_params.size() >= 4) {
-    camera_info.k[0] = projection_params(0);  // fx
-    camera_info.k[1] = 0.0;
-    camera_info.k[2] = projection_params(2);  // cx
-    camera_info.k[3] = 0.0;
-    camera_info.k[4] = projection_params(1);  // fy
-    camera_info.k[5] = projection_params(3);  // cy
-    camera_info.k[6] = 0.0;
-    camera_info.k[7] = 0.0;
-    camera_info.k[8] = 1.0;
+  camera_info.k[0] = p.fx;
+  camera_info.k[2] = p.cx;
+  camera_info.k[4] = p.fy;
+  camera_info.k[5] = p.cy;
+  camera_info.k[8] = 1.0;
 
-    // Also set P matrix (projection matrix) - for rectified images, typically P = K
-    camera_info.p[0] = projection_params(0);  // fx
-    camera_info.p[1] = 0.0;
-    camera_info.p[2] = projection_params(2);  // cx
-    camera_info.p[3] = 0.0;
-    camera_info.p[4] = 0.0;
-    camera_info.p[5] = projection_params(1);  // fy
-    camera_info.p[6] = projection_params(3);  // cy
-    camera_info.p[7] = 0.0;
-    camera_info.p[8] = 0.0;
-    camera_info.p[9] = 0.0;
-    camera_info.p[10] = 1.0;
-    camera_info.p[11] = 0.0;
-  }
+  // P = [fx  0  cx  0]
+  //     [ 0  fy cy  0]
+  //     [ 0  0   1  0]
+  camera_info.p[0] = p.fx;
+  camera_info.p[2] = p.cx;
+  camera_info.p[5] = p.fy;
+  camera_info.p[6] = p.cy;
+  camera_info.p[10] = 1.0;
 
-  // Map kalibr model to ROS distortion model
-  std::string ros_distortion_model = ToROSDistortionModel(model);
-
-  // Set distortion model and coefficients
-  camera_info.distortion_model = ros_distortion_model;
-  if (distortion_params.size() > 0) {
-    camera_info.d.resize(distortion_params.size());
-    for (int i = 0; i < distortion_params.size(); ++i) {
-      camera_info.d[i] = distortion_params(i);
-    }
-  } else {
-    camera_info.d.resize(0);
-  }
+  camera_info.distortion_model = ToROSDistortionModel(model);
+  camera_info.d = p.d;
 
   // Set rectification matrix to identity, no rectification by default.
   camera_info.r[0] = 1.0;

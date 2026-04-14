@@ -40,7 +40,7 @@ static const std::unordered_map<std::string, std::string> kKalibrToROSDistortion
     {"eucm-none", ""},
 
     // Double sphere model (not supported in standard ROS CameraInfo)
-    {"ds-none", ""},
+    {"ds-none", "double_sphere"},
 };
 
 /// @brief Convert a Kalibr2 camera model name to a ROS CameraInfo distortion model name
