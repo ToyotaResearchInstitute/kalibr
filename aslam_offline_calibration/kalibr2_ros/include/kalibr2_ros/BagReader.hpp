@@ -5,7 +5,13 @@
 #include <string>
 
 #include <aslam/Time.hpp>
+#if __has_include(<cv_bridge/cv_bridge.hpp>)
 #include <cv_bridge/cv_bridge.hpp>
+#elif __has_include(<cv_bridge/cv_bridge.h>)
+#include <cv_bridge/cv_bridge.h>
+#else
+#error "cv_bridge header not found"
+#endif
 #include <kalibr2/Image.hpp>
 #include <opencv2/core.hpp>
 #include <rosbag2_cpp/reader.hpp>

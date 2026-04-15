@@ -152,6 +152,8 @@ inline bool CalibrateSingleCamera(const std::vector<aslam::cameras::GridCalibrat
   return CalibrateSingleCamera(observations, calibrator, target, std::nullopt);
 }
 
+
+
 /**
  * @brief Calibrates a stereo camera pair, optimizing both intrinsics and extrinsics jointly.
  *
@@ -315,7 +317,7 @@ inline sm::kinematics::Transformation CalibrateStereoPair(
 sm::kinematics::Transformation getTargetPoseGuess(
     const std::vector<boost::shared_ptr<kalibr2::CameraCalibratorBase>>& calibrators, const SyncedSet& synced_set,
     const std::vector<sm::kinematics::Transformation>& baseline_guesses) {
-  // assert(calibrators.size() == synced_set.size());
+  //assert(calibrators.size() == synced_set.size());
 
   // // Assert that t least there's a valid observation in the synced set
   // bool has_valid_observation = std::any_of(synced_set.begin(), synced_set.end(),
