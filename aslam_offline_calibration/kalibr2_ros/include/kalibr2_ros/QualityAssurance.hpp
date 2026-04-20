@@ -180,11 +180,6 @@ class DataQualityTracker {
     }
 
     BinState& current_bin = bins_[grid_idx];
-    if (current_bin.isComplete()) {
-      out_code = QaErrorCode::ALREADY_COMPLETE;
-      RecordOutcome(out_code);
-      return false; // Bin already has required variance
-    }
 
     // 3. Extract Geometry
     double distance = T_t_c.T()(2); // Z-axis translation
@@ -224,7 +219,7 @@ class DataQualityTracker {
       for (int c = 0; c < grid_cols_; ++c) {
         int idx = r * grid_cols_ + c;
         int frames = bins_[idx].accepted_frames;
-        int intensity = std::min(255, frames * 80);
+        int intensity = std::min(255, std::min(frames, 8) * 32);
         heatmap.at<uint8_t>(r, c) = intensity;
       }
     }
