@@ -12,6 +12,7 @@
 #include <kalibr2_ros/Config.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <limits>
 
 // Temporal includes
 #include <aslam/calibration/core/IncrementalEstimator.h>
@@ -34,7 +35,7 @@ struct FrameObservation {
 //MODIFY THIS TO OBTAIN OBSERVATIONS, AND THE POSE SIMULTANEOUSLY SO THAT DATA QUALITY CAN BE MEASURED
 std::vector<FrameObservation> get_observations_from_camera(
     kalibr2::ImageReader& reader, const aslam::cameras::GridDetector& detector, std::optional<size_t> max_observations,
-    const std::string& camera_name) {
+  const std::string& camera_name, size_t frame_stride) {
   std::vector<FrameObservation> frame_observations;
   const size_t message_count = reader.MessageCount();
   size_t images_processed = 0;
@@ -49,6 +50,15 @@ std::vector<FrameObservation> get_observations_from_camera(
   while (reader.HasNext()) {
     kalibr2::Image img = reader.ReadNext();
     images_processed++;
+
+    // Only process every Nth frame to reduce CPU/RAM pressure.
+    if (((images_processed - 1) % frame_stride) != 0) {
+      std::cout << "\r[" << camera_name << "] Progress: " << images_processed << "/" << message_count << " images, "
+                << frame_observations.size() << " observations ("
+                << (images_processed > 0 ? (100.0 * frame_observations.size() / images_processed) : 0.0) << "% detected)"
+                << std::flush;
+      continue;
+    }
 
     auto observation = kalibr2::ToObservation(img, detector);
 
@@ -127,7 +137,7 @@ std::string qaErrorCodeToString(kalibr2::ros::qa::QaErrorCode code) {
 std::vector<aslam::cameras::GridCalibrationTargetObservation> get_observations_from_camera_with_calib_QA(
     kalibr2::ImageReader& reader, const aslam::cameras::GridDetector& detector,
     std::optional<size_t> max_observations,
-    const std::string& camera_name) {
+  const std::string& camera_name, size_t frame_stride) {
   std::vector<aslam::cameras::GridCalibrationTargetObservation> observations;
   const size_t message_count = reader.MessageCount();
   size_t images_processed = 0;
@@ -151,6 +161,15 @@ std::vector<aslam::cameras::GridCalibrationTargetObservation> get_observations_f
   while (reader.HasNext()) {
     kalibr2::Image img = reader.ReadNext();
     images_processed++;
+
+    // Only process every Nth frame to reduce CPU/RAM pressure.
+    if (((images_processed - 1) % frame_stride) != 0) {
+      std::cout << "\r[" << camera_name << "] Progress: " << images_processed << "/" << message_count << " images, "
+                << observations.size() << " observations ("
+                << (images_processed > 0 ? (100.0 * observations.size() / images_processed) : 0.0) << "% detected)"
+                << std::flush;
+      continue;
+    }
 
     if (!qa_tracker) {
       qa_tracker = std::make_unique<kalibr2::ros::qa::DataQualityTracker>(img.image.cols, img.image.rows, 4, 3);
@@ -297,6 +316,8 @@ bool CalibrateSingleCameraQA(std::vector<FrameObservation>& frame_observations,
         auto T_cam_w = target_pose_dv->toExpression().inverse();
         camera_calibrator->AddReprojectionErrorsForView(problem, observation, T_cam_w, target, invR);
       }
+    } else {
+      qa_tracker->RecordOutcome(status_code);
     }
 
     // GUI Visuals
@@ -372,6 +393,11 @@ int main(int argc, char** argv) {
                  "Soft target number of detections to report per camera. Extraction continues through all frames for QA "
                  "coverage.");
 
+  size_t frame_stride = 4;
+  app.add_option("--frame-stride", frame_stride,
+                 "Process only every Nth frame during observation extraction (default: 4).")
+      ->check(CLI::Range(static_cast<size_t>(1), std::numeric_limits<size_t>::max()));
+
   bool verbose = false;
   app.add_flag("--verbose", verbose, "Enable verbose output during calibration.");
 
@@ -400,11 +426,12 @@ int main(int argc, char** argv) {
   for (size_t camera_id = 0; camera_id < camera_calibrators.size(); ++camera_id) {
     // Capture camera_id by value to avoid iterator-capture issues.
     const size_t id = camera_id;
-    threads.emplace_back([&config, &camera_calibrators, &frame_observations_by_camera, id, max_observations]() {
+    threads.emplace_back([&config, &camera_calibrators, &frame_observations_by_camera, id, max_observations,
+                          frame_stride]() {
       const auto& camera_config = config.cameras.at(id);
       auto detector = aslam::cameras::GridDetector(camera_calibrators.at(id)->camera_geometry(), config.target);
-      frame_observations_by_camera.at(id) =
-          get_observations_from_camera(*camera_config.reader, detector, max_observations, camera_config.camera_name);
+      frame_observations_by_camera.at(id) = get_observations_from_camera(
+            *camera_config.reader, detector, max_observations, camera_config.camera_name, frame_stride);
 
     });
   }

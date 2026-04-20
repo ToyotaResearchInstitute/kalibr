@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iostream>
 #include <memory>
+#include <array>
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -74,12 +75,59 @@ class DataQualityTracker {
     status_pub_ = node_->create_publisher<std_msgs::msg::Int32>("~/qa_status", 10);
   }
 
-  ~DataQualityTracker() = default;
+  ~DataQualityTracker() {
+    LogOutcomeSummary();
+  }
 
   void publishStatus(QaErrorCode code) {
     std_msgs::msg::Int32 msg;
     msg.data = static_cast<int32_t>(code);
     status_pub_->publish(msg);
+  }
+
+  void RecordOutcome(QaErrorCode code, bool publish_status = true) {
+    const size_t idx = static_cast<size_t>(code);
+    if (idx < outcome_counts_.size()) {
+      outcome_counts_[idx]++;
+    }
+    if (code != QaErrorCode::ACCEPTED) {
+      rejected_frames_++;
+    }
+    total_frames_++;
+
+    if (publish_status) {
+      publishStatus(code);
+    }
+  }
+
+  void LogOutcomeSummary() const {
+    if (!node_ || total_frames_ == 0) {
+      return;
+    }
+
+    RCLCPP_INFO(node_->get_logger(),
+                "QA outcome summary: total=%zu, accepted=%zu, rejected=%zu",
+                total_frames_,
+                outcome_counts_[static_cast<size_t>(QaErrorCode::ACCEPTED)],
+                rejected_frames_);
+
+    RCLCPP_INFO(node_->get_logger(), "Rejected breakdown:");
+    RCLCPP_INFO(node_->get_logger(), "  NO_DETECTION: %zu",
+                outcome_counts_[static_cast<size_t>(QaErrorCode::NO_DETECTION)]);
+    RCLCPP_INFO(node_->get_logger(), "  OUT_OF_BOUNDS: %zu",
+                outcome_counts_[static_cast<size_t>(QaErrorCode::OUT_OF_BOUNDS)]);
+    RCLCPP_INFO(node_->get_logger(), "  BLURRY: %zu",
+                outcome_counts_[static_cast<size_t>(QaErrorCode::BLURRY)]);
+    RCLCPP_INFO(node_->get_logger(), "  ALREADY_COMPLETE: %zu",
+                outcome_counts_[static_cast<size_t>(QaErrorCode::ALREADY_COMPLETE)]);
+    RCLCPP_INFO(node_->get_logger(), "  NO_VARIANCE: %zu",
+                outcome_counts_[static_cast<size_t>(QaErrorCode::NO_VARIANCE)]);
+    RCLCPP_INFO(node_->get_logger(), "  POSE_ESTIMATION_FAILED: %zu",
+                outcome_counts_[static_cast<size_t>(QaErrorCode::POSE_ESTIMATION_FAILED)]);
+    RCLCPP_INFO(node_->get_logger(), "  NO_DISTANCE_VARIANCE: %zu",
+                outcome_counts_[static_cast<size_t>(QaErrorCode::NO_DISTANCE_VARIANCE)]);
+    RCLCPP_INFO(node_->get_logger(), "  NO_ANGLE_VARIANCE: %zu",
+                outcome_counts_[static_cast<size_t>(QaErrorCode::NO_ANGLE_VARIANCE)]);
   }
 
   bool evaluateFrameQuality(const cv::Mat& img,
@@ -90,7 +138,7 @@ class DataQualityTracker {
     unsigned int num_corners = obs.getCornersImageFrame(corners_image_frame);
     if (num_corners == 0) {
       out_code = QaErrorCode::NO_DETECTION;
-      publishStatus(out_code);
+      RecordOutcome(out_code);
       return false;
     }
 
@@ -99,7 +147,7 @@ class DataQualityTracker {
     roi &= cv::Rect(0, 0, img.cols, img.rows); // ensure it stays within image bounds
     if (roi.width == 0 || roi.height == 0) {
       out_code = QaErrorCode::NO_DETECTION;
-      publishStatus(out_code);
+      RecordOutcome(out_code);
       return false;
     }
 
@@ -119,7 +167,7 @@ class DataQualityTracker {
     const double BLUR_THRESHOLD = 950.0; // Lowered to 50 for testing
     if (variance < BLUR_THRESHOLD) {
       out_code = QaErrorCode::BLURRY;
-      publishStatus(out_code);
+      RecordOutcome(out_code);
       return false; // Too blurry
     }
 
@@ -127,14 +175,14 @@ class DataQualityTracker {
     int grid_idx = getDetectionGridIndex(obs);
     if (grid_idx < 0 || grid_idx >= (int)bins_.size()) {
       out_code = QaErrorCode::OUT_OF_BOUNDS;
-      publishStatus(out_code);
+      RecordOutcome(out_code);
       return false; // Not found or out of bounds
     }
 
     BinState& current_bin = bins_[grid_idx];
     if (current_bin.isComplete()) {
       out_code = QaErrorCode::ALREADY_COMPLETE;
-      publishStatus(out_code);
+      RecordOutcome(out_code);
       return false; // Bin already has required variance
     }
 
@@ -149,12 +197,12 @@ class DataQualityTracker {
       bool is_new_angle = std::abs(current_bin.tilt_angles.back() - tilt_angle) > 0.1;
       if (!is_new_distance) {
         out_code = QaErrorCode::NO_DISTANCE_VARIANCE;
-        publishStatus(out_code);
+        RecordOutcome(out_code);
         return false;
       }
       if (!is_new_angle) {
         out_code = QaErrorCode::NO_ANGLE_VARIANCE;
-        publishStatus(out_code);
+        RecordOutcome(out_code);
         return false;
       }
     }
@@ -165,7 +213,7 @@ class DataQualityTracker {
     current_bin.accepted_frames++;
 
     out_code = QaErrorCode::ACCEPTED;
-    publishStatus(out_code);
+    RecordOutcome(out_code);
     publishMetrics();
     return true;
   }
@@ -261,6 +309,9 @@ class DataQualityTracker {
   int grid_cols_;
   int grid_rows_;
   std::vector<BinState> bins_;
+  std::array<size_t, 9> outcome_counts_{};
+  size_t total_frames_ = 0;
+  size_t rejected_frames_ = 0;
 
   rclcpp::Node::SharedPtr node_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr heatmap_pub_;
