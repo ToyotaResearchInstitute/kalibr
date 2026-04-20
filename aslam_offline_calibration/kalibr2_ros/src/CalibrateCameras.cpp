@@ -10,58 +10,408 @@
 #include <kalibr2/SynchronizedObservationView.hpp>
 #include <kalibr2_ros/BagReader.hpp>
 #include <kalibr2_ros/Config.hpp>
+#include <opencv2/calib3d.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <limits>
 
 // Temporal includes
 #include <aslam/calibration/core/IncrementalEstimator.h>
 #include <kalibr2_ros/ROSToYAMLConverter.hpp>
+#include <kalibr2_ros/QualityAssurance.hpp> // <-- Added our QA header
 
 using kalibr2::ros::CalibrationConfig;
 using kalibr2::ros::CameraConfig;
 
-std::vector<aslam::cameras::GridCalibrationTargetObservation> get_observations_from_camera(
+struct FrameObservation {
+  aslam::cameras::GridCalibrationTargetObservation observation;
+  cv::Mat image;
+};
+
+//our QA node 
+
+
+
+//MARKER KUARTIS
+//MODIFY THIS TO OBTAIN OBSERVATIONS, AND THE POSE SIMULTANEOUSLY SO THAT DATA QUALITY CAN BE MEASURED
+std::vector<FrameObservation> get_observations_from_camera(
     kalibr2::ImageReader& reader, const aslam::cameras::GridDetector& detector, std::optional<size_t> max_observations,
-    const std::string& camera_name) {
-  std::vector<aslam::cameras::GridCalibrationTargetObservation> observations;
+  const std::string& camera_name, size_t frame_stride) {
+  std::vector<FrameObservation> frame_observations;
   const size_t message_count = reader.MessageCount();
   size_t images_processed = 0;
+  bool target_notice_printed = false;
 
   std::cout << "[" << camera_name << "] Starting observation extraction from " << message_count << " images";
   if (max_observations.has_value()) {
     std::cout << " (target: " << max_observations.value() << " observations)";
   }
   std::cout << std::endl;
-
+  //PIPELINE::THE IMAGE IS BEING READ HERE 
   while (reader.HasNext()) {
     kalibr2::Image img = reader.ReadNext();
     images_processed++;
 
+    // Only process every Nth frame to reduce CPU/RAM pressure.
+    if (((images_processed - 1) % frame_stride) != 0) {
+      std::cout << "\r[" << camera_name << "] Progress: " << images_processed << "/" << message_count << " images, "
+                << frame_observations.size() << " observations ("
+                << (images_processed > 0 ? (100.0 * frame_observations.size() / images_processed) : 0.0) << "% detected)"
+                << std::flush;
+      continue;
+    }
+
     auto observation = kalibr2::ToObservation(img, detector);
 
     if (observation.has_value()) {
-      observations.push_back(observation.value());
+      frame_observations.push_back({observation.value(), img.image.clone()});
+
+      if (max_observations.has_value() &&
+          !target_notice_printed &&
+          frame_observations.size() >= max_observations.value()) {
+        std::cout << std::endl;
+        std::cout << "[" << camera_name << "] Reached target of " << max_observations.value()
+                  << " observations after processing " << images_processed
+                  << " images, but continuing to scan all frames for QA." << std::endl;
+        target_notice_printed = true;
+      }
     }
 
     std::cout << "\r[" << camera_name << "] Progress: " << images_processed << "/" << message_count << " images, "
-              << observations.size() << " observations ("
-              << (images_processed > 0 ? (100.0 * observations.size() / images_processed) : 0.0) << "% detected)"
+              << frame_observations.size() << " observations ("
+              << (images_processed > 0 ? (100.0 * frame_observations.size() / images_processed) : 0.0) << "% detected)"
+              << std::flush;
+  }
+
+  std::cout << std::endl;
+  std::cout << "[" << camera_name << "] Final: " << frame_observations.size() << " observations from " << images_processed
+            << " images (" << (images_processed > 0 ? (100.0 * frame_observations.size() / images_processed) : 0.0)
+            << "% detection rate)" << std::endl;
+
+  return frame_observations;
+}
+
+
+// QA Tracker Function to find grid index
+int getDetectionGridIndex(const aslam::cameras::GridCalibrationTargetObservation& obs, 
+                          int image_width, int image_height, int grid_cols = 6, int grid_rows = 5) {
+  std::vector<cv::Point2f> corners_image_frame;
+  unsigned int num_corners = obs.getCornersImageFrame(corners_image_frame);
+  
+  if (num_corners == 0) {
+      return -1; // No target detected
+  }
+
+  float sum_x = 0.0f;
+  float sum_y = 0.0f;
+  for (const auto& pt : corners_image_frame) {
+      sum_x += pt.x;
+      sum_y += pt.y;
+  }
+  float centroid_x = sum_x / num_corners;
+  float centroid_y = sum_y / num_corners;
+
+  float cell_width = static_cast<float>(image_width) / grid_cols;
+  float cell_height = static_cast<float>(image_height) / grid_rows;
+
+  int grid_x = std::max(0, std::min(static_cast<int>(centroid_x / cell_width), grid_cols - 1));
+  int grid_y = std::max(0, std::min(static_cast<int>(centroid_y / cell_height), grid_rows - 1));
+
+  return (grid_y * grid_cols) + grid_x;
+}
+
+std::string qaErrorCodeToString(kalibr2::ros::qa::QaErrorCode code) {
+  switch (code) {
+    case kalibr2::ros::qa::QaErrorCode::ACCEPTED: return "ACCEPTED";
+    case kalibr2::ros::qa::QaErrorCode::NO_DETECTION: return "NO DETECTION";
+    case kalibr2::ros::qa::QaErrorCode::OUT_OF_BOUNDS: return "OUT OF BOUNDS";
+    case kalibr2::ros::qa::QaErrorCode::BLURRY: return "BLURRY";
+    case kalibr2::ros::qa::QaErrorCode::ALREADY_COMPLETE: return "ALREADY COMPLETE";
+    case kalibr2::ros::qa::QaErrorCode::NO_VARIANCE: return "NO VARIANCE";
+    case kalibr2::ros::qa::QaErrorCode::POSE_ESTIMATION_FAILED: return "POSE EST FAILED";
+    case kalibr2::ros::qa::QaErrorCode::NO_DISTANCE_VARIANCE: return "NO DIST VARIANCE";
+    case kalibr2::ros::qa::QaErrorCode::NO_ANGLE_VARIANCE: return "NO ANGLE VARIANCE";
+    default: return "UNKNOWN";
+  }
+}
+
+cv::Matx33d makeFallbackCameraMatrix(int width, int height, std::optional<double> focal_length) {
+  const double max_dim = static_cast<double>(std::max(width, height));
+  const double focal_px = focal_length.value_or(0.9 * max_dim);
+  const double cx = (width - 1) * 0.5;
+  const double cy = (height - 1) * 0.5;
+  return cv::Matx33d(focal_px, 0.0, cx,
+                     0.0, focal_px, cy,
+                     0.0, 0.0, 1.0);
+}
+
+std::vector<FrameObservation> get_observations_from_camera_with_calib_QA(
+    kalibr2::ImageReader& reader, const aslam::cameras::GridDetector& detector,
+    std::optional<size_t> max_observations, std::optional<double> fallback_focal_length,
+    const std::string& camera_name, size_t frame_stride) {
+  std::vector<FrameObservation> frame_observations;
+  const size_t message_count = reader.MessageCount();
+  size_t images_processed = 0;
+  bool target_notice_printed = false;
+
+  // Initialize DataQualityTracker later once we read the first image
+  std::unique_ptr<kalibr2::ros::qa::DataQualityTracker> qa_tracker;
+  cv::Matx33d camera_matrix;
+  bool has_camera_matrix = false;
+  const cv::Mat dist_coeffs = cv::Mat::zeros(5, 1, CV_64F);
+
+  std::string window_detections = "Detections QA - " + camera_name;
+  std::string window_heatmap = "Heatmap - " + camera_name;
+  cv::namedWindow(window_detections, cv::WINDOW_AUTOSIZE);
+  cv::namedWindow(window_heatmap, cv::WINDOW_AUTOSIZE);
+
+  std::cout << "[" << camera_name << "] Starting custom QA observation extraction from " << message_count << " images";
+  if (max_observations.has_value()) {
+    std::cout << " (target: " << max_observations.value() << " observations)";
+  }
+  std::cout << std::endl;
+
+  //PIPELINE::THE IMAGE IS BEING READ HERE 
+  while (reader.HasNext()) {
+    kalibr2::Image img = reader.ReadNext();
+    images_processed++;
+
+    // Only process every Nth frame to reduce CPU/RAM pressure.
+    if (((images_processed - 1) % frame_stride) != 0) {
+      std::cout << "\r[" << camera_name << "] Progress: " << images_processed << "/" << message_count << " images, "
+            << frame_observations.size() << " observations ("
+            << (images_processed > 0 ? (100.0 * frame_observations.size() / images_processed) : 0.0)
+            << "% detected)"
+                << std::flush;
+      continue;
+    }
+
+    if (!qa_tracker) {
+      qa_tracker = std::make_unique<kalibr2::ros::qa::DataQualityTracker>(img.image.cols, img.image.rows, 4, 3);
+    }
+    if (!has_camera_matrix) {
+      camera_matrix = makeFallbackCameraMatrix(img.image.cols, img.image.rows, fallback_focal_length);
+      has_camera_matrix = true;
+    }
+
+    auto observation = kalibr2::ToObservation(img, detector);
+    
+    cv::Mat display_img = img.image.clone();
+    if (display_img.channels() == 1) {
+      cv::cvtColor(display_img, display_img, cv::COLOR_GRAY2BGR);
+    }
+    
+    kalibr2::ros::qa::QaErrorCode status_code = kalibr2::ros::qa::QaErrorCode::NO_DETECTION;
+    bool is_valuable = false;
+
+    if (observation.has_value()) {
+      // Just extract points for visualizing what was detected
+      std::vector<cv::Point2f> corners_image;
+      observation.value().getCornersImageFrame(corners_image);
+      std::vector<cv::Point3f> corners_target;
+      observation.value().getCornersTargetFrame(corners_target);
+
+      std::vector<cv::Point2f> corners;
+      corners = corners_image;
+      for(size_t i = 0; i < corners.size(); i++){
+        cv::circle(display_img, corners[i], 3, cv::Scalar(0, 255, 0), -1);
+      }
+
+      if (corners_image.size() >= 4 && corners_image.size() == corners_target.size()) {
+        cv::Mat rvec, tvec;
+        std::vector<int> inliers;
+        bool pose_success = cv::solvePnPRansac(
+            corners_target, corners_image, cv::Mat(camera_matrix), dist_coeffs,
+            rvec, tvec, false, 100, 8.0, 0.99, inliers, cv::SOLVEPNP_ITERATIVE);
+
+        if (pose_success) {
+          cv::Mat rotation;
+          cv::Rodrigues(rvec, rotation);
+          Eigen::Matrix3d R;
+          R << rotation.at<double>(0, 0), rotation.at<double>(0, 1), rotation.at<double>(0, 2),
+               rotation.at<double>(1, 0), rotation.at<double>(1, 1), rotation.at<double>(1, 2),
+               rotation.at<double>(2, 0), rotation.at<double>(2, 1), rotation.at<double>(2, 2);
+          Eigen::Vector3d t;
+          t << tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2);
+
+          Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+          T.block<3, 3>(0, 0) = R;
+          T.block<3, 1>(0, 3) = t;
+          sm::kinematics::Transformation T_t_c(T);
+          is_valuable = qa_tracker->evaluateFrameQuality(img.image, T_t_c, observation.value(), status_code);
+        } else {
+          status_code = kalibr2::ros::qa::QaErrorCode::POSE_ESTIMATION_FAILED;
+          qa_tracker->RecordOutcome(status_code);
+        }
+      } else {
+        status_code = kalibr2::ros::qa::QaErrorCode::POSE_ESTIMATION_FAILED;
+        qa_tracker->RecordOutcome(status_code);
+      }
+    }
+    if (observation.has_value() && is_valuable) {
+      frame_observations.push_back({observation.value(), img.image.clone()});
+    }
+    if (!observation.has_value()) {
+      qa_tracker->RecordOutcome(status_code);
+    }
+
+    std::cout << "\r[" << camera_name << "] Progress: " << images_processed << "/" << message_count << " images, "
+              << frame_observations.size() << " observations ("
+              << (images_processed > 0 ? (100.0 * frame_observations.size() / images_processed) : 0.0) << "% detected)"
               << std::flush;
 
-    if (max_observations.has_value() && observations.size() >= max_observations.value()) {
+    // GUI Interaction
+    cv::Scalar text_color = (status_code == kalibr2::ros::qa::QaErrorCode::ACCEPTED) ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255);
+    cv::putText(display_img, qaErrorCodeToString(status_code), cv::Point(20, 40), cv::FONT_HERSHEY_SIMPLEX, 1.0, text_color, 2);
+
+        if (status_code == kalibr2::ros::qa::QaErrorCode::ACCEPTED) {
+         cv::putText(display_img, "Target Saved", cv::Point(20, 80), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
+    }
+
+    cv::imshow(window_detections, display_img);
+    if (qa_tracker) {
+      cv::imshow(window_heatmap, qa_tracker->getHeatmapImage());
+      qa_tracker->spinROSOnce(); // ensure our topics broadcast!
+    }
+    cv::waitKey(1); // Wait 1ms so OpenCV can draw
+    
+    if (max_observations.has_value() &&
+        !target_notice_printed &&
+        frame_observations.size() >= max_observations.value()) {
       std::cout << std::endl;
       std::cout << "[" << camera_name << "] Reached target of " << max_observations.value()
-                << " observations after processing " << images_processed << " images" << std::endl;
-      break;
+                << " observations after processing " << images_processed
+                << " images, but continuing to scan all frames for QA." << std::endl;
+      target_notice_printed = true;
     }
   }
 
   std::cout << std::endl;
-  std::cout << "[" << camera_name << "] Final: " << observations.size() << " observations from " << images_processed
-            << " images (" << (images_processed > 0 ? (100.0 * observations.size() / images_processed) : 0.0)
+  std::cout << "[" << camera_name << "] Final: " << frame_observations.size() << " observations from " << images_processed
+            << " images (" << (images_processed > 0 ? (100.0 * frame_observations.size() / images_processed) : 0.0)
             << "% detection rate)" << std::endl;
 
-  return observations;
+  cv::destroyWindow(window_detections);
+  cv::destroyWindow(window_heatmap);
+  
+  return frame_observations;
+}
+
+bool CalibrateSingleCameraQA(std::vector<FrameObservation>& frame_observations,
+                             const boost::shared_ptr<kalibr2::CameraCalibratorBase>& camera_calibrator,
+                             const aslam::cameras::GridCalibrationTargetBase::Ptr& target,
+                             std::optional<double> fallback_focal_length,
+                             const std::string& camera_name) {
+  
+  if (frame_observations.empty()) {
+    SM_WARN("No observations for camera %s", camera_name.c_str());
+    return false;
+  }
+
+  std::vector<aslam::cameras::GridCalibrationTargetObservation> observations;
+  observations.reserve(frame_observations.size());
+  for (const auto& frame_observation : frame_observations) {
+    observations.push_back(frame_observation.observation);
+  }
+
+  int img_cols = observations[0].imCols();
+  int img_rows = observations[0].imRows();
+
+  // First initialize intrinsics exactly like the Kalibr pipeline 
+  // (which is safe because it has all views now). 
+  bool success = camera_calibrator->camera_geometry()->initializeIntrinsics(observations, fallback_focal_length);
+  if (!success) {
+    SM_WARN("Failed to initialize intrinsics for camera %s", camera_name.c_str());
+    return false;
+  }
+
+  auto problem = boost::make_shared<aslam::calibration::OptimizationProblem>();
+  camera_calibrator->AddIntrinsicDesignVariables(problem);
+
+  constexpr double corner_uncertainty = 1.0;
+  Eigen::Matrix2d R = Eigen::Matrix2d::Identity() * corner_uncertainty * corner_uncertainty;
+  Eigen::Matrix2d invR = R.inverse();
+
+  // Setup QA GUI
+  std::unique_ptr<kalibr2::ros::qa::DataQualityTracker> qa_tracker = 
+    std::make_unique<kalibr2::ros::qa::DataQualityTracker>(img_cols, img_rows, 4, 3);
+  std::string window_name = "QA Post-Extraction Pose - " + camera_name;
+  cv::namedWindow(window_name, cv::WINDOW_AUTOSIZE);
+
+  std::vector<boost::shared_ptr<aslam::backend::TransformationBasic>> target_pose_dvs;
+  std::vector<FrameObservation> valid_frame_observations;
+  valid_frame_observations.reserve(frame_observations.size());
+
+  std::cout << "[" << camera_name << "] Applying QA tracker after intrinsic initialization..." << std::endl;
+
+  for (size_t i = 0; i < frame_observations.size(); ++i) {
+    const auto& frame_observation = frame_observations[i];
+    const auto& observation = frame_observation.observation;
+    const auto& image = frame_observation.image;
+    sm::kinematics::Transformation T_t_c;
+    
+    // Now estimateTransformation uses initialized, mathematically safe intrinsics!
+    bool pose_success = camera_calibrator->camera_geometry()->estimateTransformation(observation, T_t_c);
+    
+    cv::Mat display_img = image.empty() ? cv::Mat::zeros(img_rows, img_cols, CV_8UC3) : image.clone();
+    if (display_img.channels() == 1) {
+      cv::cvtColor(display_img, display_img, cv::COLOR_GRAY2BGR);
+    }
+
+    kalibr2::ros::qa::QaErrorCode status_code = kalibr2::ros::qa::QaErrorCode::POSE_ESTIMATION_FAILED;
+    
+    if (pose_success) {
+      bool is_valuable = qa_tracker->evaluateFrameQuality(image, T_t_c, observation, status_code);
+      
+      if (is_valuable) {
+        valid_frame_observations.push_back(frame_observation);
+
+        auto target_pose_dv = kalibr2::tools::AddPoseDesignVariable(problem, T_t_c);
+        target_pose_dvs.push_back(target_pose_dv);
+
+        auto T_cam_w = target_pose_dv->toExpression().inverse();
+        camera_calibrator->AddReprojectionErrorsForView(problem, observation, T_cam_w, target, invR);
+      }
+    } else {
+      qa_tracker->RecordOutcome(status_code);
+    }
+
+    // GUI Visuals
+    std::vector<cv::Point2f> corners;
+    observation.getCornersImageFrame(corners);
+    for (const auto& c : corners) {
+      cv::circle(display_img, c, 3, cv::Scalar(0, 255, 0), -1);
+    }
+    cv::Scalar text_color = (status_code == kalibr2::ros::qa::QaErrorCode::ACCEPTED) ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255);
+    cv::putText(display_img, qaErrorCodeToString(status_code), cv::Point(20, 40), cv::FONT_HERSHEY_SIMPLEX, 1.0, text_color, 2);
+    
+    cv::imshow(window_name, display_img);
+    cv::imshow("Heatmap - " + camera_name, qa_tracker->getHeatmapImage());
+    qa_tracker->spinROSOnce();
+    cv::waitKey(1);
+  }
+  
+  std::cout << "[" << camera_name << "] QA Filtered from " << frame_observations.size() << " down to "
+            << valid_frame_observations.size() << " valid poses." << std::endl;
+
+  if (target_pose_dvs.empty()) {
+    SM_WARN("QA rejected all observations for camera %s", camera_name.c_str());
+    cv::destroyWindow(window_name);
+    cv::destroyWindow("Heatmap - " + camera_name);
+    return false;
+  }
+  
+  // Replace the original array with strictly QA vetted observations.
+  frame_observations = valid_frame_observations;
+
+  cv::destroyWindow(window_name);
+  cv::destroyWindow("Heatmap - " + camera_name);
+
+  // Proceed with Kalibr's original optimization logic on the safe valid_observations
+  auto optimizer = kalibr2::tools::CreateDefaultOptimizer();
+  optimizer.setProblem(problem);
+  auto retval = optimizer.optimize();
+  return !retval.linearSolverFailure;
 }
 
 int main(int argc, char** argv) {
@@ -72,6 +422,8 @@ int main(int argc, char** argv) {
   app.add_option("-c,--config", bag_path, "Full path to calibration configuration YAML file.")
       ->required()
       ->check(CLI::ExistingFile);
+  std::string topic_name;
+  app.add_option("-t,--topic", topic_name,"Topic name for Camera Data");
 
   std::string output_dir;
   app.add_option("-o,--output-dir", output_dir, "Directory to save the calibration results.")
@@ -94,16 +446,25 @@ int main(int argc, char** argv) {
 
   std::optional<size_t> max_observations;
   app.add_option("--max-observations", max_observations,
-                 "Maximum number of target observations to extract per camera. If not specified, all observations will "
-                 "be extracted.");
+                 "Soft target number of detections to report per camera. Extraction continues through all frames for QA "
+                 "coverage.");
+
+  size_t frame_stride = 4;
+  app.add_option("--frame-stride", frame_stride,
+                 "Process only every Nth frame during observation extraction (default: 4).")
+      ->check(CLI::Range(static_cast<size_t>(1), std::numeric_limits<size_t>::max()));
 
   bool verbose = false;
   app.add_flag("--verbose", verbose, "Enable verbose output during calibration.");
 
   CLI11_PARSE(app, argc, argv);
+  
+  // ROS Node Init 
+  rclcpp::init(argc, argv);
+
   // | --- User side setup --- |
   // "/kalibr/aslam_offline_calibration/kalibr2_ros/calibration_config.yaml"
-  CalibrationConfig config = kalibr2::ros::ConfigFromYaml(bag_path);
+  CalibrationConfig config = kalibr2::ros::ConfigFromYaml(bag_path, topic_name);
 
   std::vector<boost::shared_ptr<kalibr2::CameraCalibratorBase>> camera_calibrators;
   for (const auto& camera_config : config.cameras) {
@@ -112,8 +473,7 @@ int main(int argc, char** argv) {
   }
 
   // |---- Extract observations for each camera ----|
-  std::vector<std::vector<aslam::cameras::GridCalibrationTargetObservation>> observations_by_camera;
-  observations_by_camera.resize(camera_calibrators.size());
+  std::vector<std::vector<FrameObservation>> frame_observations_by_camera(camera_calibrators.size());
 
   // Use multithreading to fill observations_by_camera in parallel.
   std::vector<std::thread> threads;
@@ -122,11 +482,14 @@ int main(int argc, char** argv) {
   for (size_t camera_id = 0; camera_id < camera_calibrators.size(); ++camera_id) {
     // Capture camera_id by value to avoid iterator-capture issues.
     const size_t id = camera_id;
-    threads.emplace_back([&config, &camera_calibrators, &observations_by_camera, id, max_observations]() {
+        threads.emplace_back([&config, &camera_calibrators, &frame_observations_by_camera, id, max_observations,
+              frame_stride]() {
       const auto& camera_config = config.cameras.at(id);
       auto detector = aslam::cameras::GridDetector(camera_calibrators.at(id)->camera_geometry(), config.target);
-      observations_by_camera.at(id) =
-          get_observations_from_camera(*camera_config.reader, detector, max_observations, camera_config.camera_name);
+      frame_observations_by_camera.at(id) = get_observations_from_camera_with_calib_QA(
+        *camera_config.reader, detector, max_observations, camera_config.focal_length,
+        camera_config.camera_name, frame_stride);
+
     });
   }
 
@@ -134,22 +497,37 @@ int main(int argc, char** argv) {
     t.join();
   }
 
-  for (size_t i = 0; i < observations_by_camera.size(); ++i) {
-    std::cout << config.cameras[i].camera_name << " collected " << observations_by_camera[i].size() << " observations."
-              << std::endl;
+  for (size_t i = 0; i < frame_observations_by_camera.size(); ++i) {
+    std::cout << config.cameras[i].camera_name << " collected " << frame_observations_by_camera[i].size()
+              << " observation-image pairs." << std::endl;
   }
 
   // |---- Get initial intrinsic guess for each camera ----|
   for (size_t camera_id = 0; camera_id < camera_calibrators.size(); ++camera_id) {
     const auto& camera_config = config.cameras.at(camera_id);
-    auto detector = aslam::cameras::GridDetector(camera_calibrators.at(camera_id)->camera_geometry(), config.target);
+    std::vector<aslam::cameras::GridCalibrationTargetObservation> observations;
+    observations.reserve(frame_observations_by_camera.at(camera_id).size());
+    for (const auto& frame_observation : frame_observations_by_camera.at(camera_id)) {
+      observations.push_back(frame_observation.observation);
+    }
     bool success =
-        kalibr2::tools::CalibrateSingleCamera(observations_by_camera.at(camera_id), camera_calibrators.at(camera_id),
-                                              config.target, camera_config.focal_length);
+        kalibr2::tools::CalibrateSingleCamera(observations, camera_calibrators.at(camera_id), config.target,
+                                              camera_config.focal_length);
     if (!success) {
       throw std::runtime_error("Failed to calibrate intrinsics from observations for camera ID: " +
                                std::to_string(camera_id));
     }
+  }
+
+  std::vector<std::vector<aslam::cameras::GridCalibrationTargetObservation>> observations_by_camera;
+  observations_by_camera.resize(camera_calibrators.size());
+  for (size_t camera_id = 0; camera_id < camera_calibrators.size(); ++camera_id) {
+    observations_by_camera[camera_id].reserve(frame_observations_by_camera[camera_id].size());
+    for (const auto& frame_observation : frame_observations_by_camera[camera_id]) {
+      observations_by_camera[camera_id].push_back(frame_observation.observation);
+    }
+    std::cout << config.cameras[camera_id].camera_name << " retained " << observations_by_camera[camera_id].size()
+              << " QA-filtered observations for multi-camera calibration." << std::endl;
   }
 
   // | ---- Sync observations across cameras ----|
@@ -354,4 +732,7 @@ int main(int argc, char** argv) {
     kalibr2::ros::tfMessageToYAML(tf_message, tf_message_filepath);
     std::cout << "Exported all transforms to: " << tf_message_filepath << std::endl;
   }
+  
+  // Shutdown QA node scope
+  rclcpp::shutdown();
 }

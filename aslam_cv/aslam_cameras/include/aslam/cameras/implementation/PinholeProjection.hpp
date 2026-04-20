@@ -874,7 +874,7 @@ bool PinholeProjection<DISTORTION_T>::estimateTransformation(
 
   // Call the OpenCV pnp function.
   cv::solvePnP(Ps, Ms, cv::Mat::eye(3, 3, CV_64F), distCoeffs, rvec, tvec);
-
+  //MARKER FOR THE ACTUAL TRANSFORMATION CALCULATION D: 
   // convert the rvec/tvec to a transformation
   cv::Mat C_camera_model = cv::Mat::eye(3, 3, CV_64F);
   Eigen::Matrix4d T_camera_model = Eigen::Matrix4d::Identity();

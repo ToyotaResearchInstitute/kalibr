@@ -25,8 +25,9 @@ struct CalibrationConfig {
 
 /// @brief Load calibration configuration from a YAML file
 /// @param yaml_path Path to the YAML configuration file
+/// @param cli_topic Optional camera topic passed in from command line for single-camera live topics
 /// @return CalibrationConfig populated from the YAML file
 /// @throws std::runtime_error if the file cannot be read or parsed
-CalibrationConfig ConfigFromYaml(const std::string& yaml_path);
+CalibrationConfig ConfigFromYaml(const std::string& yaml_path, const std::string& cli_topic = "");
 
 }  // namespace kalibr2::ros
