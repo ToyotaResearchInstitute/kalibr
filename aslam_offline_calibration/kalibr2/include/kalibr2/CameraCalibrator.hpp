@@ -13,6 +13,14 @@
 
 namespace kalibr2 {
 
+struct ReprojectionErrorStatistics {
+  size_t num_points;
+  std::vector<double> mean_signed;
+  double mean_norm;
+  std::vector<double> std_dev;
+  double rmse;
+};
+
 /**
  * @brief Abstract base class for camera calibration.
  *
@@ -79,6 +87,7 @@ class CameraCalibratorBase {
 
   virtual void PrintReprojectionErrorsMean() const = 0;
   virtual void PrintReprojectionErrorStatistics() const = 0;
+  virtual std::optional<ReprojectionErrorStatistics> GetReprojectionErrorStatistics() const = 0;
 };
 
 template <typename CameraT>
@@ -304,55 +313,83 @@ class CameraCalibrator : public CameraCalibratorBase {
     return error_values;
   }
 
-  void PrintReprojectionErrorStatistics() const {
-    // This would come from your GetFinalReprojectionErrors() method
+  std::optional<ReprojectionErrorStatistics> GetReprojectionErrorStatistics() const override {
     auto error_values = GetErrorValues();
 
     if (error_values.empty()) {
-      std::cout << "No reprojection errors to compute statistics." << std::endl;
-      return;
+      return std::nullopt;
     }
 
-    // Use a type alias for clarity
     using ErrorVectorT = Eigen::Matrix<double, CameraT::Geometry::KeypointDimension, 1>;
 
-    // --- 1. Compute the Mean (First Pass) ---
-    ErrorVectorT sum_of_errors =
-        std::accumulate(error_values.begin(), error_values.end(),
-                        ErrorVectorT::Zero().eval()  // .eval() helps the compiler with type deduction
-        );
+    ErrorVectorT sum_of_errors = ErrorVectorT::Zero();
+    for(const auto& error: error_values) {
+      sum_of_errors += error;
+    }
     ErrorVectorT mean_error = sum_of_errors / static_cast<double>(error_values.size());
 
-    // --- 2. Compute the Standard Deviation (Second Pass) ---
-    // We need at least 2 samples to compute a meaningful sample standard deviation.
+    double sum_of_norms = 0.0;
+    for(const auto& error: error_values) {
+      sum_of_norms += error.norm();
+    }
+    double mean_norm = sum_of_norms / static_cast<double>(error_values.size());
+
     ErrorVectorT std_dev = ErrorVectorT::Zero();
     if (error_values.size() > 1) {
       ErrorVectorT sum_of_squared_diffs = ErrorVectorT::Zero();
       for (const auto& error : error_values) {
         ErrorVectorT diff = error - mean_error;
-        // Use .array() for element-wise operations, then convert back to a matrix
         sum_of_squared_diffs += diff.array().square().matrix();
       }
-
-      // Sample Variance (divide by N-1)
       ErrorVectorT variance = sum_of_squared_diffs / (static_cast<double>(error_values.size()) - 1);
-
-      // Standard Deviation is the square root of variance
       std_dev = variance.array().sqrt().matrix();
     }
 
-    // --- 3. Print the Results ---
-    std::cout << "Reprojection Error Statistics (" << error_values.size() << " points):" << std::endl;
-    // The .transpose() makes it print as a row vector [x, y]
-    std::cout << "  Mean (px):      " << mean_error.transpose() << std::endl;
     double sum_squared_error = 0.0;
     for (const auto& error : error_values) {
       sum_squared_error += error.squaredNorm();
     }
-    const double rmse = std::sqrt(sum_squared_error / static_cast<double>(error_values.size()));
+    double rmse = std::sqrt(sum_squared_error / static_cast<double>(error_values.size()));
 
-    std::cout << "  Std Dev (px):   " << std_dev.transpose() << std::endl;
-    std::cout << "  RMSE (px):      " << rmse << std::endl;
+    std::vector<double> mean_signed_vec;
+    std::vector<double> std_dev_vec;
+    for(int i = 0; i < CameraT::Geometry::KeypointDimension; ++i) {
+      mean_signed_vec.push_back(mean_error(i));
+      std_dev_vec.push_back(std_dev(i));
+    }
+
+    return ReprojectionErrorStatistics{
+      error_values.size(),
+      mean_signed_vec,
+      mean_norm,
+      std_dev_vec,
+      rmse
+    };
+  }
+
+  void PrintReprojectionErrorStatistics() const override {
+    auto stats_opt = GetReprojectionErrorStatistics();
+
+    if (!stats_opt.has_value()) {
+      std::cout << "No reprojection errors to compute statistics." << std::endl;
+      return;
+    }
+
+    const auto& stats = stats_opt.value();
+
+    std::cout << "Reprojection Error Statistics (" << stats.num_points << " points):" << std::endl;
+    
+    std::cout << "  Mean signed (px): ";
+    for (const auto& val : stats.mean_signed) std::cout << val << " ";
+    std::cout << std::endl;
+
+    std::cout << "  Mean norm (px):   " << stats.mean_norm << std::endl;
+
+    std::cout << "  Std Dev (px):     ";
+    for (const auto& val : stats.std_dev) std::cout << val << " ";
+    std::cout << std::endl;
+
+    std::cout << "  RMSE (px):        " << stats.rmse << std::endl;
   }
 
   // Store reprojection errors for later use (e.g., statistics computation)

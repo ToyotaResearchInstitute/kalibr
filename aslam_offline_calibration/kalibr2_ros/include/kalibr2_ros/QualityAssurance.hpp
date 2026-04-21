@@ -146,7 +146,7 @@ class DataQualityTracker {
     constexpr int kAprilgridRows = 6;
     constexpr int kAprilgridCols = 6;
     const int total_points = kAprilgridRows * kAprilgridCols * 4;
-    const int min_points = static_cast<int>(std::ceil(total_points * 0.75));
+    const int min_points = static_cast<int>(std::ceil(total_points * 0.50));
     if (static_cast<int>(num_corners) < min_points) {
       out_code = QaErrorCode::NO_DETECTION;
       RecordOutcome(out_code);
@@ -175,7 +175,7 @@ class DataQualityTracker {
     double variance = stddev.val[0] * stddev.val[0];
 
     //1000 is crystal clear
-    const double BLUR_THRESHOLD = 900.0; // Lowered to 50 for testing
+    const double BLUR_THRESHOLD = 600.0; // Lowered to 50 for testing
     if (variance < BLUR_THRESHOLD) {
       out_code = QaErrorCode::BLURRY;
       RecordOutcome(out_code);

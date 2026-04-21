@@ -64,7 +64,7 @@ std::vector<FrameObservation> get_observations_from_camera(
     auto observation = kalibr2::ToObservation(img, detector);
 
     if (observation.has_value()) {
-      frame_observations.push_back({observation.value(), img.image.clone()});
+      frame_observations.push_back({observation.value(), cv::Mat()});
 
       if (max_observations.has_value() &&
           !target_notice_printed &&
@@ -160,10 +160,14 @@ std::vector<FrameObservation> get_observations_from_camera_with_calib_QA(
   bool has_camera_matrix = false;
   const cv::Mat dist_coeffs = cv::Mat::zeros(5, 1, CV_64F);
 
+  const int window_width = 1920;
+  const int window_height = 1080;
   std::string window_detections = "Detections QA - " + camera_name;
   std::string window_heatmap = "Heatmap - " + camera_name;
-  cv::namedWindow(window_detections, cv::WINDOW_AUTOSIZE);
-  cv::namedWindow(window_heatmap, cv::WINDOW_AUTOSIZE);
+  cv::namedWindow(window_detections, cv::WINDOW_NORMAL);
+  cv::namedWindow(window_heatmap, cv::WINDOW_NORMAL);
+  cv::resizeWindow(window_detections, window_width, window_height);
+  cv::resizeWindow(window_heatmap, window_width, window_height);
 
   std::cout << "[" << camera_name << "] Starting custom QA observation extraction from " << message_count << " images";
   if (max_observations.has_value()) {
@@ -187,7 +191,7 @@ std::vector<FrameObservation> get_observations_from_camera_with_calib_QA(
     }
 
     if (!qa_tracker) {
-      qa_tracker = std::make_unique<kalibr2::ros::qa::DataQualityTracker>(img.image.cols, img.image.rows, 4, 3);
+      qa_tracker = std::make_unique<kalibr2::ros::qa::DataQualityTracker>(img.image.cols, img.image.rows, 40, 30);
     }
     if (!has_camera_matrix) {
       camera_matrix = makeFallbackCameraMatrix(img.image.cols, img.image.rows, fallback_focal_length);
@@ -249,7 +253,7 @@ std::vector<FrameObservation> get_observations_from_camera_with_calib_QA(
       }
     }
     if (observation.has_value() && is_valuable) {
-      frame_observations.push_back({observation.value(), img.image.clone()});
+      frame_observations.push_back({observation.value(), cv::Mat()});
     }
     if (!observation.has_value()) {
       qa_tracker->RecordOutcome(status_code);
@@ -336,7 +340,10 @@ bool CalibrateSingleCameraQA(std::vector<FrameObservation>& frame_observations,
   std::unique_ptr<kalibr2::ros::qa::DataQualityTracker> qa_tracker = 
     std::make_unique<kalibr2::ros::qa::DataQualityTracker>(img_cols, img_rows, 4, 3);
   std::string window_name = "QA Post-Extraction Pose - " + camera_name;
-  cv::namedWindow(window_name, cv::WINDOW_AUTOSIZE);
+  cv::namedWindow(window_name, cv::WINDOW_NORMAL);
+  cv::namedWindow("Heatmap - " + camera_name, cv::WINDOW_NORMAL);
+  cv::resizeWindow(window_name, 1920, 1080);
+  cv::resizeWindow("Heatmap - " + camera_name, 1920, 1080);
 
   std::vector<boost::shared_ptr<aslam::backend::TransformationBasic>> target_pose_dvs;
   std::vector<FrameObservation> valid_frame_observations;

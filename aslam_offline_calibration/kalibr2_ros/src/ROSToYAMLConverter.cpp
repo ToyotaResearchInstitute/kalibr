@@ -107,6 +107,31 @@ void CalibratorToYAML(const boost::shared_ptr<CameraCalibratorBase>& calibrator,
   camera_info.r[8] = 1.0;
 
   cameraInfoToYAML(camera_info, yaml_file);
+
+  // Append reprojection error statistics to the YAML file
+  auto stats_opt = calibrator->GetReprojectionErrorStatistics();
+  if (stats_opt.has_value()) {
+    const auto& stats = stats_opt.value();
+    std::ofstream os(yaml_file, std::ios_base::app);
+    if (os.is_open()) {
+      os << "\nreprojection_error_statistics:\n";
+      os << "  num_points: " << stats.num_points << "\n";
+      os << "  mean_norm: " << stats.mean_norm << "\n";
+      os << "  rmse: " << stats.rmse << "\n";
+      
+      os << "  mean_signed: [";
+      for (size_t i = 0; i < stats.mean_signed.size(); ++i) {
+        os << stats.mean_signed[i] << (i + 1 < stats.mean_signed.size() ? ", " : "");
+      }
+      os << "]\n";
+
+      os << "  std_dev: [";
+      for (size_t i = 0; i < stats.std_dev.size(); ++i) {
+        os << stats.std_dev[i] << (i + 1 < stats.std_dev.size() ? ", " : "");
+      }
+      os << "]\n";
+    }
+  }
 }
 
 }  // namespace kalibr2::ros
