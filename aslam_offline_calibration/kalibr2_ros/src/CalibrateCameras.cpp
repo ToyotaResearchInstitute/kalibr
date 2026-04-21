@@ -148,7 +148,7 @@ cv::Matx33d makeFallbackCameraMatrix(int width, int height, std::optional<double
 std::vector<FrameObservation> get_observations_from_camera_with_calib_QA(
     kalibr2::ImageReader& reader, const aslam::cameras::GridDetector& detector,
   std::optional<size_t> max_observations, std::optional<double> fallback_focal_length,
-  const std::string& camera_name, std::optional<size_t> frame_stride) {
+  const std::string& camera_name, std::optional<size_t> frame_stride, std::string& qa_yaml_out) {
   std::vector<FrameObservation> frame_observations;
   const size_t message_count = reader.MessageCount();
   size_t images_processed = 0;
@@ -294,6 +294,10 @@ std::vector<FrameObservation> get_observations_from_camera_with_calib_QA(
   std::cout << "[" << camera_name << "] Final: " << frame_observations.size() << " observations from " << images_processed
             << " images (" << (images_processed > 0 ? (100.0 * frame_observations.size() / images_processed) : 0.0)
             << "% detection rate)" << std::endl;
+
+  if (qa_tracker) {
+    qa_yaml_out = qa_tracker->getYamlStats();
+  }
 
   cv::destroyWindow(window_detections);
   cv::destroyWindow(window_heatmap);
@@ -481,6 +485,7 @@ int main(int argc, char** argv) {
 
   // |---- Extract observations for each camera ----|
   std::vector<std::vector<FrameObservation>> frame_observations_by_camera(camera_calibrators.size());
+  std::vector<std::string> qa_results_by_camera(camera_calibrators.size());
 
   // Use multithreading to fill observations_by_camera in parallel.
   std::vector<std::thread> threads;
@@ -489,7 +494,7 @@ int main(int argc, char** argv) {
   for (size_t camera_id = 0; camera_id < camera_calibrators.size(); ++camera_id) {
     // Capture camera_id by value to avoid iterator-capture issues.
     const size_t id = camera_id;
-    threads.emplace_back([&config, &camera_calibrators, &frame_observations_by_camera, id, max_observations,
+    threads.emplace_back([&config, &camera_calibrators, &frame_observations_by_camera, &qa_results_by_camera, id, max_observations,
                           frame_stride]() {
       const auto& camera_config = config.cameras.at(id);
       aslam::cameras::GridDetector::GridDetectorOptions detector_options;
@@ -498,7 +503,7 @@ int main(int argc, char** argv) {
                        detector_options);
         frame_observations_by_camera.at(id) = get_observations_from_camera_with_calib_QA(
           *camera_config.reader, detector, max_observations, camera_config.focal_length,
-          camera_config.camera_name, frame_stride);
+          camera_config.camera_name, frame_stride, qa_results_by_camera.at(id));
 
     });
   }
@@ -710,6 +715,15 @@ int main(int argc, char** argv) {
     std::string output_filepath = output_dir + "/" + output_filename;
     kalibr2::ros::CalibratorToYAML(camera_calibrator, camera_config.model, camera_config.camera_name, width, height,
                                    output_filepath);
+    
+    // Append QA stats
+    if (!qa_results_by_camera[i].empty()) {
+      std::ofstream os(output_filepath, std::ios_base::app);
+      if (os.is_open()) {
+        os << qa_results_by_camera[i];
+      }
+    }
+
     std::cout << "Exported calibration to: " << output_filepath << std::endl;
   }
 

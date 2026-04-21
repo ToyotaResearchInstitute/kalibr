@@ -1,0 +1,28 @@
+--- aslam_offline_calibration/kalibr2_ros/include/kalibr2_ros/QualityAssurance.hpp
++++ aslam_offline_calibration/kalibr2_ros/include/kalibr2_ros/QualityAssurance.hpp
+@@ -108,6 +108,31 @@
+   }
+ 
++  std::string getYamlStats() const {
++    std::ostringstream os;
++    os << "\nquality_assurance_results:\n";
++    os << "  blur_threshold: " << 800.0 << "\n";
++    constexpr int total_points = 6 * 6 * 4;
++    os << "  min_points: " << static_cast<int>(std::ceil(total_points * 0.75)) << "\n";
++    os << "  total_frames_processed: " << total_frames_ << "\n";
++    os << "  accepted_frames: " << outcome_counts_[static_cast<size_t>(QaErrorCode::ACCEPTED)] << "\n";
++    os << "  rejected_frames: " << rejected_frames_ << "\n";
++    os << "  rejected_breakdown:\n";
++    os << "    NO_DETECTION: " << outcome_counts_[static_cast<size_t>(QaErrorCode::NO_DETECTION)] << "\n";
++    os << "    OUT_OF_BOUNDS: " << outcome_counts_[static_cast<size_t>(QaErrorCode::OUT_OF_BOUNDS)] << "\n";
++    os << "    BLURRY: " << outcome_counts_[static_cast<size_t>(QaErrorCode::BLURRY)] << "\n";
++    os << "    ALREADY_COMPLETE: " << outcome_counts_[static_cast<size_t>(QaErrorCode::ALREADY_COMPLETE)] << "\n";
++    os << "    NO_VARIANCE: " << outcome_counts_[static_cast<size_t>(QaErrorCode::NO_VARIANCE)] << "\n";
++    os << "    POSE_ESTIMATION_FAILED: " << outcome_counts_[static_cast<size_t>(QaErrorCode::POSE_ESTIMATION_FAILED)] << "\n";
++    os << "    NO_DISTANCE_VARIANCE: " << outcome_counts_[static_cast<size_t>(QaErrorCode::NO_DISTANCE_VARIANCE)] << "\n";
++    os << "    NO_ANGLE_VARIANCE: " << outcome_counts_[static_cast<size_t>(QaErrorCode::NO_ANGLE_VARIANCE)] << "\n";
++    return os.str();
++  }
++
+   bool evaluateFrameQuality(const cv::Mat& img,
+                             const sm::kinematics::Transformation& T_t_c,
