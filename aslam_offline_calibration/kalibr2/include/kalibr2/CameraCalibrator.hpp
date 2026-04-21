@@ -345,8 +345,14 @@ class CameraCalibrator : public CameraCalibratorBase {
     std::cout << "Reprojection Error Statistics (" << error_values.size() << " points):" << std::endl;
     // The .transpose() makes it print as a row vector [x, y]
     std::cout << "  Mean (px):      " << mean_error.transpose() << std::endl;
+    double sum_squared_error = 0.0;
+    for (const auto& error : error_values) {
+      sum_squared_error += error.squaredNorm();
+    }
+    const double rmse = std::sqrt(sum_squared_error / static_cast<double>(error_values.size()));
+
     std::cout << "  Std Dev (px):   " << std_dev.transpose() << std::endl;
-    std::cout << "  RMSE (px):      " << sum_of_errors.norm() / std::sqrt(error_values.size()) << std::endl;
+    std::cout << "  RMSE (px):      " << rmse << std::endl;
   }
 
   // Store reprojection errors for later use (e.g., statistics computation)

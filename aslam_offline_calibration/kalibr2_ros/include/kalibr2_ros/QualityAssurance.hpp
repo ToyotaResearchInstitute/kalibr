@@ -39,6 +39,7 @@ struct BinState {
   int accepted_frames = 0;
   std::vector<double> tilt_angles;
   std::vector<double> distances;
+  int last_point_count = 0;
 
   const double MIN_ANGLE_VARIANCE = 0.15; // radians (~20 degrees)
   const double MIN_DIST_VARIANCE  = 0;  // meters
@@ -142,6 +143,16 @@ class DataQualityTracker {
       return false;
     }
 
+    constexpr int kAprilgridRows = 6;
+    constexpr int kAprilgridCols = 6;
+    const int total_points = kAprilgridRows * kAprilgridCols * 4;
+    const int min_points = static_cast<int>(std::ceil(total_points * 0.75));
+    if (static_cast<int>(num_corners) < min_points) {
+      out_code = QaErrorCode::NO_DETECTION;
+      RecordOutcome(out_code);
+      return false;
+    }
+
     // 1. Calculate Motion Blur (Laplacian Variance) on the detected crop
     cv::Rect roi = cv::boundingRect(corners_image_frame);
     roi &= cv::Rect(0, 0, img.cols, img.rows); // ensure it stays within image bounds
@@ -164,7 +175,7 @@ class DataQualityTracker {
     double variance = stddev.val[0] * stddev.val[0];
 
     //1000 is crystal clear
-    const double BLUR_THRESHOLD = 950.0; // Lowered to 50 for testing
+    const double BLUR_THRESHOLD = 900.0; // Lowered to 50 for testing
     if (variance < BLUR_THRESHOLD) {
       out_code = QaErrorCode::BLURRY;
       RecordOutcome(out_code);
@@ -191,11 +202,29 @@ class DataQualityTracker {
       bool is_new_distance = std::abs(current_bin.distances.back() - distance) > 0.05;
       bool is_new_angle = std::abs(current_bin.tilt_angles.back() - tilt_angle) > 0.1;
       if (!is_new_distance) {
+        if (num_corners > static_cast<unsigned int>(current_bin.last_point_count) && !is_new_angle) {
+          current_bin.distances.back() = distance;
+          current_bin.tilt_angles.back() = tilt_angle;
+          current_bin.last_point_count = static_cast<int>(num_corners);
+          out_code = QaErrorCode::ACCEPTED;
+          RecordOutcome(out_code);
+          publishMetrics();
+          return true;
+        }
         out_code = QaErrorCode::NO_DISTANCE_VARIANCE;
         RecordOutcome(out_code);
         return false;
       }
       if (!is_new_angle) {
+        if (num_corners > static_cast<unsigned int>(current_bin.last_point_count) && !is_new_distance) {
+          current_bin.distances.back() = distance;
+          current_bin.tilt_angles.back() = tilt_angle;
+          current_bin.last_point_count = static_cast<int>(num_corners);
+          out_code = QaErrorCode::ACCEPTED;
+          RecordOutcome(out_code);
+          publishMetrics();
+          return true;
+        }
         out_code = QaErrorCode::NO_ANGLE_VARIANCE;
         RecordOutcome(out_code);
         return false;
@@ -206,6 +235,7 @@ class DataQualityTracker {
     current_bin.distances.push_back(distance);
     current_bin.tilt_angles.push_back(tilt_angle);
     current_bin.accepted_frames++;
+    current_bin.last_point_count = static_cast<int>(num_corners);
 
     out_code = QaErrorCode::ACCEPTED;
     RecordOutcome(out_code);

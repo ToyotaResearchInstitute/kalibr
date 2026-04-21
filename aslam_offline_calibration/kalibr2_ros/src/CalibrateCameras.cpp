@@ -147,8 +147,8 @@ cv::Matx33d makeFallbackCameraMatrix(int width, int height, std::optional<double
 
 std::vector<FrameObservation> get_observations_from_camera_with_calib_QA(
     kalibr2::ImageReader& reader, const aslam::cameras::GridDetector& detector,
-    std::optional<size_t> max_observations, std::optional<double> fallback_focal_length,
-    const std::string& camera_name, size_t frame_stride) {
+  std::optional<size_t> max_observations, std::optional<double> fallback_focal_length,
+  const std::string& camera_name, std::optional<size_t> frame_stride) {
   std::vector<FrameObservation> frame_observations;
   const size_t message_count = reader.MessageCount();
   size_t images_processed = 0;
@@ -177,7 +177,7 @@ std::vector<FrameObservation> get_observations_from_camera_with_calib_QA(
     images_processed++;
 
     // Only process every Nth frame to reduce CPU/RAM pressure.
-    if (((images_processed - 1) % frame_stride) != 0) {
+    if (frame_stride.has_value() && ((images_processed - 1) % frame_stride.value()) != 0) {
       std::cout << "\r[" << camera_name << "] Progress: " << images_processed << "/" << message_count << " images, "
             << frame_observations.size() << " observations ("
             << (images_processed > 0 ? (100.0 * frame_observations.size() / images_processed) : 0.0)
@@ -434,7 +434,7 @@ int main(int argc, char** argv) {
   app.add_option("--approx-sync-tolerance", approx_sync_tolerance,
                  "Tolerance for approximate synchronization of observations across cameras (in seconds).");
 
-  double mutual_information_tolerance = 0.2;
+  double mutual_information_tolerance = -1;
   app.add_option("--mi-tol", mutual_information_tolerance,
                  "The tolerance on the mutual information for adding an image in the incremental calibration. Higher "
                  "means fewer images will be added. Use -1 to force all images.");
@@ -449,9 +449,9 @@ int main(int argc, char** argv) {
                  "Soft target number of detections to report per camera. Extraction continues through all frames for QA "
                  "coverage.");
 
-  size_t frame_stride = 4;
+  size_t frame_stride = 10;
   app.add_option("--frame-stride", frame_stride,
-                 "Process only every Nth frame during observation extraction (default: 4).")
+                 "Process only every Nth frame during observation extraction (default: 10).")
       ->check(CLI::Range(static_cast<size_t>(1), std::numeric_limits<size_t>::max()));
 
   bool verbose = false;
@@ -482,13 +482,16 @@ int main(int argc, char** argv) {
   for (size_t camera_id = 0; camera_id < camera_calibrators.size(); ++camera_id) {
     // Capture camera_id by value to avoid iterator-capture issues.
     const size_t id = camera_id;
-        threads.emplace_back([&config, &camera_calibrators, &frame_observations_by_camera, id, max_observations,
-              frame_stride]() {
+    threads.emplace_back([&config, &camera_calibrators, &frame_observations_by_camera, id, max_observations,
+                          frame_stride]() {
       const auto& camera_config = config.cameras.at(id);
-      auto detector = aslam::cameras::GridDetector(camera_calibrators.at(id)->camera_geometry(), config.target);
-      frame_observations_by_camera.at(id) = get_observations_from_camera_with_calib_QA(
-        *camera_config.reader, detector, max_observations, camera_config.focal_length,
-        camera_config.camera_name, frame_stride);
+      aslam::cameras::GridDetector::GridDetectorOptions detector_options;
+      detector_options.filterCornerOutliers = true;
+      auto detector = aslam::cameras::GridDetector(camera_calibrators.at(id)->camera_geometry(), config.target,
+                       detector_options);
+        frame_observations_by_camera.at(id) = get_observations_from_camera_with_calib_QA(
+          *camera_config.reader, detector, max_observations, camera_config.focal_length,
+          camera_config.camera_name, frame_stride);
 
     });
   }
