@@ -11,6 +11,7 @@
 #include <boost/serialization/version.hpp>
 #include <sm/boost/serialization.hpp>
 #include <aslam/Frame.hpp>
+#include <optional>
 
 namespace aslam {
 // forward declaration

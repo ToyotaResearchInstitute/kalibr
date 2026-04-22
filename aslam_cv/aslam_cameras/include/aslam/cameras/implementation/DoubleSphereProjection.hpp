@@ -1,5 +1,6 @@
 #include <aslam/cameras/DoubleSphereProjection.hpp>
 #include <aslam/cameras/NoDistortion.hpp>
+#include <optional>
 
 namespace aslam {
 

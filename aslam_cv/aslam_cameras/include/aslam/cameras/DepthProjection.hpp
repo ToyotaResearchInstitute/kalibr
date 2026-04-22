@@ -6,6 +6,7 @@
 #include <boost/serialization/split_member.hpp>
 #include <boost/serialization/version.hpp>
 #include <sm/boost/serialization.hpp>
+#include <optional>
 
 namespace aslam {
 namespace cameras {

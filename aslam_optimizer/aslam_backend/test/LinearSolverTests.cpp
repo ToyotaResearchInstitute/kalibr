@@ -6,7 +6,9 @@
 
 #include <aslam/backend/DenseQrLinearSystemSolver.hpp>
 #include <aslam/backend/SparseCholeskyLinearSystemSolver.hpp>
+#ifndef QRSOLVER_DISABLED
 #include <aslam/backend/SparseQrLinearSystemSolver.hpp>
+#endif
 #include <aslam/backend/BlockCholeskyLinearSystemSolver.hpp>
 #include <boost/lexical_cast.hpp>
 #include <aslam/backend/Optimizer2.hpp>
@@ -115,7 +117,7 @@ TEST(LinearSolverTestSuite, testSparseCholesky)
 }
 
 
-
+#ifndef QRSOLVER_DISABLED
 TEST(LinearSolverTestSuite, testSparseQR)
 {
   using namespace aslam::backend;
@@ -139,6 +141,8 @@ TEST(LinearSolverTestSuite, testSparseQR)
             }*/
   }
 }
+
+#endif
 
 /*
 TEST(LinearSolverTestSuite, testOptimizerLevenbergMarquardt)

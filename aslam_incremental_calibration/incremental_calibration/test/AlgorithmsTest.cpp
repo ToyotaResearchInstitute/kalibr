@@ -29,6 +29,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/LU>
+#include <Eigen/QR>
 
 #include <sm/eigen/gtest.hpp>
 
@@ -59,6 +60,9 @@ TEST(AslamCalibrationTestSuite, testAlgorithms) {
     OutOfBoundException<size_t>);
   Eigen::MatrixXd J = Eigen::MatrixXd::Random(100, 10);
   Eigen::MatrixXd JCov1 = (J.transpose() * J).inverse();
+  Eigen::MatrixXd RFactor;
+  CompressedColumnMatrix<std::ptrdiff_t> RFactorSparse;
+#ifndef QRSOLVER_DISABLED
   Cholmod<std::ptrdiff_t> cholmod;
   CompressedColumnMatrix<std::ptrdiff_t> JTransposeSparse;
   JTransposeSparse.fromDense(J.transpose());
@@ -66,11 +70,17 @@ TEST(AslamCalibrationTestSuite, testAlgorithms) {
   JTransposeSparse.getView(&JTransposeSparseCholmod);
   cholmod_sparse* RFactorSparseCholmod;
   cholmod.getR(&JTransposeSparseCholmod, &RFactorSparseCholmod);
-  CompressedColumnMatrix<std::ptrdiff_t> RFactorSparse;
   RFactorSparse.fromCholmodSparse(RFactorSparseCholmod);
   cholmod.free(RFactorSparseCholmod);
-  Eigen::MatrixXd RFactor;
   RFactorSparse.toDenseInto(RFactor);
+#else
+  Eigen::HouseholderQR<Eigen::MatrixXd> qr(J);
+  RFactor = qr.matrixQR().topLeftCorner(J.cols(), J.cols())
+    .template triangularView<Eigen::Upper>();
+  RFactorSparse.fromDense(RFactor);
+  CompressedColumnMatrix<std::ptrdiff_t> JTransposeSparse;
+  JTransposeSparse.fromDense(J.transpose());
+#endif
   Eigen::MatrixXd JCov2 = (RFactor.transpose() * RFactor).inverse();
   sm::eigen::assertNear(JCov1, JCov2, 1e-6, SM_SOURCE_FILE_POS,
     "J'*J and R'*R does not match");

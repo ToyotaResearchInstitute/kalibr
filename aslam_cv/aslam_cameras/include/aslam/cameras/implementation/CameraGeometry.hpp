@@ -1,4 +1,5 @@
 #include <sm/serialization_macros.hpp>
+#include <optional>
 
 namespace aslam {
 

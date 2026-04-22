@@ -26,6 +26,7 @@
 #include <cstddef>
 
 #include <limits>
+#include <cmath>
 
 #include <Eigen/Core>
 #include <SuiteSparseQR.hpp>
@@ -48,7 +49,31 @@ template <typename Entry, typename Int = int64_t> double spqr_maxcolnorm
 
     // workspace and parameters
     cholmod_common *cc
-);
+) {
+    (void)cc;
+    if (A == NULL || A->p == NULL || A->x == NULL) {
+      return 0.0;
+    }
+
+    const Int* col_ptr = reinterpret_cast<const Int*>(A->p);
+    const Entry* values = reinterpret_cast<const Entry*>(A->x);
+
+    double max_norm = 0.0;
+    for (Int c = 0; c < static_cast<Int>(A->ncol); ++c) {
+      const Int begin = col_ptr[c];
+      const Int end = col_ptr[c + 1];
+      double col_norm_sq = 0.0;
+      for (Int k = begin; k < end; ++k) {
+        const double v = static_cast<double>(values[k]);
+        col_norm_sq += v * v;
+      }
+      const double col_norm = std::sqrt(col_norm_sq);
+      if (col_norm > max_norm) {
+        max_norm = col_norm;
+      }
+    }
+    return max_norm;
+}
 
 
 namespace aslam {

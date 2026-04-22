@@ -4,6 +4,7 @@
 #include<Eigen/Core>
 #include<aslam/Time.hpp>
 #include<sm/Id.hpp>
+#include <optional>
 #include <boost/serialization/split_member.hpp>
 #include <sm/boost/serialization.hpp>
 #include <sm/PropertyTree.hpp>

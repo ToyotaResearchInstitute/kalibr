@@ -16,6 +16,8 @@ find_package(sm_logging REQUIRED)
 find_package(sm_property_tree REQUIRED)
 find_package(sparse_block_matrix REQUIRED)
 
+option(ASLAM_BACKEND_DISABLE_QR_SOLVER "Disable SuiteSparseQR-based solvers" ON)
+
 add_library(${PROJECT_NAME}
   src/MEstimatorPolicies.cpp
   src/JacobianContainer.cpp
@@ -30,15 +32,12 @@ add_library(${PROJECT_NAME}
   src/LinearSystemSolver.cpp
   src/BlockCholeskyLinearSystemSolver.cpp
   src/SparseCholeskyLinearSystemSolver.cpp
-  src/SparseQrLinearSystemSolver.cpp
   src/Matrix.cpp
   src/DenseMatrix.cpp
   src/SparseBlockMatrixWrapper.cpp
   src/DenseQrLinearSystemSolver.cpp
   src/BlockCholeskyLinearSolverOptions.cpp
   src/SparseCholeskyLinearSolverOptions.cpp
-  src/SparseQRLinearSolverOptions.cpp
-  src/DenseQRLinearSolverOptions.cpp
   src/TrustRegionPolicy.cpp
   src/ErrorTermDs.cpp
   src/GaussNewtonTrustRegionPolicy.cpp
@@ -48,6 +47,13 @@ add_library(${PROJECT_NAME}
   src/DogLegTrustRegionPolicy.cpp
   src/Optimizer2.cpp
 )
+
+if(NOT ASLAM_BACKEND_DISABLE_QR_SOLVER)
+  target_sources(${PROJECT_NAME} PRIVATE
+    src/SparseQrLinearSystemSolver.cpp
+    src/SparseQRLinearSolverOptions.cpp
+  )
+endif()
 
 target_include_directories(${PROJECT_NAME}
   PUBLIC
@@ -72,6 +78,12 @@ target_compile_options(
   PUBLIC
   "-Wall"
   "-Wextra"
+)
+
+target_compile_definitions(
+  ${PROJECT_NAME}
+  PUBLIC
+  $<$<BOOL:${ASLAM_BACKEND_DISABLE_QR_SOLVER}>:QRSOLVER_DISABLED>
 )
 
 target_compile_features(

@@ -187,8 +187,8 @@ namespace aslam {
 
 
 
+#ifndef QRSOLVER_DISABLED
 
-    
           SolutionReturnValue Optimizer::optimizeDogLeg()
           {
             Timer timeGn("Optimizer: build Hessian", true);
@@ -457,6 +457,8 @@ namespace aslam {
 
 
           }
+
+#endif
 
 
 

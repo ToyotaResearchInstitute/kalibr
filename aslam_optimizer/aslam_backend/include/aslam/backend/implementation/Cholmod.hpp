@@ -257,7 +257,7 @@ namespace aslam {
     void Cholmod<I>::free(spqr_factor* factor)
     {
       if (factor)
-        SuiteSparseQR_free(&factor, &_cholmod);
+        SuiteSparseQR_free<double>(&factor, &_cholmod);
     }
 #endif
 

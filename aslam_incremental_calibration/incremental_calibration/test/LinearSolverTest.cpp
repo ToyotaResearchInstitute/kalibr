@@ -116,7 +116,7 @@ void evaluateSPQRSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b,
 //  std::cout << "estimated rank: " << factor->rank << std::endl;
 //  std::cout << "estimated rank deficiency: " << A.cols() - factor->rank
 //    << std::endl;
-  SuiteSparseQR_free(&factor, &cholmod);
+  SuiteSparseQR_free<double>(&factor, &cholmod);
 //  const double after = aslam::calibration::Timestamp::now();
 //  const double error = (b - A * x_est).norm();
 //  std::cout << std::fixed << std::setprecision(18) << "error: " << error

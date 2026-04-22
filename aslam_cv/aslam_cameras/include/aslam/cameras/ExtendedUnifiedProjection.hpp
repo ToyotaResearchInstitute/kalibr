@@ -11,6 +11,7 @@
 #include <aslam/cameras/GridCalibrationTargetObservation.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <sm/logging.hpp>
+#include <optional>
 
 namespace aslam {
 namespace cameras {

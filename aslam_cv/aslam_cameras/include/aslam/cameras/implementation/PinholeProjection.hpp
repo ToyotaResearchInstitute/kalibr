@@ -2,6 +2,7 @@
 #include <Eigen/StdVector>
 #include <iostream>
 #include <cstdlib>
+#include <optional>
 
 namespace aslam {
 

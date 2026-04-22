@@ -94,7 +94,7 @@ class ExpressionJacobianTestTraits<RotationExpression> {
         Jest,
         expressionTester.getTolerance(),
         SM_SOURCE_FILE_POS,
-        (std::stringstream("Testing the RotationExpression's Jacobian (column=") << i << ")").str()
+        std::string("Testing the RotationExpression's Jacobian (column=") + std::to_string(i) + ")"
       );
       if (expressionTester.getPrintResult()) {
         std::cout << "Jest=\n" << Jest << std::endl;

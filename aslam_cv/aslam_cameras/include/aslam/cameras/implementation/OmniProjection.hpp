@@ -1,3 +1,6 @@
+// Required for std::optional in initializeIntrinsics signature.
+#include <optional>
+
 namespace aslam {
 
 namespace cameras {

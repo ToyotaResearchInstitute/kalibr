@@ -21,6 +21,7 @@
 #include <cmath>
 
 #include <Eigen/Dense>
+#include <SuiteSparseQR.hpp>
 
 #include <aslam/backend/CompressedColumnMatrix.hpp>
 
@@ -63,7 +64,7 @@ namespace aslam {
       cholmod_sparse* J_thetatQFull = SuiteSparseQR_qmult<double>(SPQR_XQ, QR,
         J_thetat, cholmod);
       if (J_thetatQFull == NULL) {
-        SuiteSparseQR_free(&QR, cholmod);
+        SuiteSparseQR_free<double>(&QR, cholmod);
         throw InvalidOperationException("marginalJacobian(): "
           "SuiteSparseQR_qmult failed");
       }
@@ -74,14 +75,14 @@ namespace aslam {
         colIndices, J_x->ncol, 1, 0, cholmod);
       delete [] colIndices;
       if (J_thetatQ == NULL) {
-        SuiteSparseQR_free(&QR, cholmod);
+        SuiteSparseQR_free<double>(&QR, cholmod);
         cholmod_l_free_sparse(&J_thetatQFull, cholmod);
         throw InvalidOperationException("marginalJacobian(): "
           "cholmod_l_submatrix failed");
       }
       cholmod_sparse* J_thetat2 = cholmod_l_aat(J_thetat, NULL, 0, 1, cholmod);
       if (J_thetat2 == NULL) {
-        SuiteSparseQR_free(&QR, cholmod);
+        SuiteSparseQR_free<double>(&QR, cholmod);
         cholmod_l_free_sparse(&J_thetatQFull, cholmod);
         cholmod_l_free_sparse(&J_thetatQ, cholmod);
         throw InvalidOperationException("marginalJacobian(): "
@@ -90,7 +91,7 @@ namespace aslam {
       cholmod_sparse* J_thetatQ2 = cholmod_l_aat(J_thetatQ, NULL, 0, 1,
         cholmod);
       if (J_thetatQ2 == NULL) {
-        SuiteSparseQR_free(&QR, cholmod);
+        SuiteSparseQR_free<double>(&QR, cholmod);
         cholmod_l_free_sparse(&J_thetatQFull, cholmod);
         cholmod_l_free_sparse(&J_thetatQ, cholmod);
         cholmod_l_free_sparse(&J_thetat2, cholmod);
@@ -104,7 +105,7 @@ namespace aslam {
       cholmod_sparse* Omega = cholmod_l_add(J_thetat2, J_thetatQ2, alpha, beta,
         1, 0, cholmod);
       if (Omega == NULL) {
-        SuiteSparseQR_free(&QR, cholmod);
+        SuiteSparseQR_free<double>(&QR, cholmod);
         cholmod_l_free_sparse(&J_thetatQFull, cholmod);
         cholmod_l_free_sparse(&J_thetatQ, cholmod);
         cholmod_l_free_sparse(&J_thetat2, cholmod);
@@ -118,7 +119,7 @@ namespace aslam {
       OmegaCCM.toDenseInto(OmegaDense);
 
       // clean allocated memory
-      SuiteSparseQR_free(&QR, cholmod);
+      SuiteSparseQR_free<double>(&QR, cholmod);
       cholmod_l_free_sparse(&J_thetatQFull, cholmod);
       cholmod_l_free_sparse(&J_thetatQ, cholmod);
       cholmod_l_free_sparse(&J_thetat2, cholmod);

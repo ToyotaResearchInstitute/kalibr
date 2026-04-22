@@ -53,14 +53,14 @@ class LinearSolverQr : public LinearSolver<MatrixType>
     {
       delete _cholmodSparse;
       if ( _cholmodFactor)
-    	  SuiteSparseQR_free(&_cholmodFactor, &_cholmodCommon);
+	  	SuiteSparseQR_free<double>(&_cholmodFactor, &_cholmodCommon);
       cholmod_finish(&_cholmodCommon);
     }
 
     virtual bool init()
     {
     	if (_cholmodFactor) {
-    		SuiteSparseQR_free(&_cholmodFactor, &_cholmodCommon);
+			SuiteSparseQR_free<double>(&_cholmodFactor, &_cholmodCommon);
     		_cholmodFactor = 0;
     	}
     	return true;
